@@ -1,6 +1,4 @@
 use super::*;
-use std::hash::{Hash, Hasher};
-
 pub(super) fn detect_native_stack_layout() -> VmResult<NativeStackLayout> {
     let cached = NATIVE_STACK_LAYOUT
         .get_or_init(|| detect_native_stack_layout_uncached().map_err(layout_probe_error_message));
@@ -8,40 +6,6 @@ pub(super) fn detect_native_stack_layout() -> VmResult<NativeStackLayout> {
         Ok(layout) => Ok(*layout),
         Err(message) => Err(VmError::JitNative(message.clone())),
     }
-}
-
-pub(super) fn native_layout_fingerprint() -> VmResult<u64> {
-    let layout = detect_native_stack_layout()?;
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-
-    layout.vm_stack_offset.hash(&mut hasher);
-    layout.vm_locals_offset.hash(&mut hasher);
-    layout.vm_program_constants_ptr_offset.hash(&mut hasher);
-    layout.vm_program_constants_len_offset.hash(&mut hasher);
-    layout.vm_ip_offset.hash(&mut hasher);
-    layout.vm_interrupt_mode_offset.hash(&mut hasher);
-    layout.vm_fuel_remaining_offset.hash(&mut hasher);
-    layout.vm_fuel_check_interval_offset.hash(&mut hasher);
-    layout.vm_fuel_ops_until_check_offset.hash(&mut hasher);
-    layout.vm_epoch_deadline_offset.hash(&mut hasher);
-    layout.vm_epoch_counter_ptr_offset.hash(&mut hasher);
-    layout.vm_drop_contract_events_offset.hash(&mut hasher);
-    layout.stack_vec.ptr_offset.hash(&mut hasher);
-    layout.stack_vec.len_offset.hash(&mut hasher);
-    layout.stack_vec.cap_offset.hash(&mut hasher);
-    layout.value.size.hash(&mut hasher);
-    layout.value.tag_offset.hash(&mut hasher);
-    layout.value.tag_size.hash(&mut hasher);
-    layout.value.null_tag.hash(&mut hasher);
-    layout.value.int_tag.hash(&mut hasher);
-    layout.value.float_tag.hash(&mut hasher);
-    layout.value.bool_tag.hash(&mut hasher);
-    layout.value.int_payload_offset.hash(&mut hasher);
-    layout.value.float_payload_offset.hash(&mut hasher);
-    layout.value.bool_payload_offset.hash(&mut hasher);
-    std::mem::offset_of!(Vm, native_helper_fn).hash(&mut hasher);
-
-    Ok(hasher.finish())
 }
 
 fn detect_native_stack_layout_uncached() -> VmResult<NativeStackLayout> {

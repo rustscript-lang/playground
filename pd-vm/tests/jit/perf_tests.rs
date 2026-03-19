@@ -335,19 +335,11 @@ fn perf_jit_native_reduces_tight_loop_latency() {
         PerfExecMode::Jit,
         expected,
     );
-    let warmup_aot = run_sum_loop_with_mode(
-        &compiled.program,
-        compiled.locals,
-        PerfExecMode::Aot,
-        expected,
-    );
     assert_eq!(warmup_interpreter.stack, expected_stack);
     assert_eq!(warmup_jit.stack, warmup_interpreter.stack);
-    assert_eq!(warmup_aot.stack, warmup_interpreter.stack);
 
     let mut interpreter_times = Vec::with_capacity(TRIALS);
     let mut jit_times = Vec::with_capacity(TRIALS);
-    let mut aot_times = Vec::with_capacity(TRIALS);
     for trial in 0..TRIALS {
         let interpreter_run = run_sum_loop_with_mode(
             &compiled.program,
@@ -361,12 +353,6 @@ fn perf_jit_native_reduces_tight_loop_latency() {
             PerfExecMode::Jit,
             expected,
         );
-        let aot_run = run_sum_loop_with_mode(
-            &compiled.program,
-            compiled.locals,
-            PerfExecMode::Aot,
-            expected,
-        );
 
         assert_eq!(
             interpreter_run.stack, expected_stack,
@@ -376,29 +362,20 @@ fn perf_jit_native_reduces_tight_loop_latency() {
             jit_run.stack, interpreter_run.stack,
             "native JIT result mismatch on trial {trial}",
         );
-        assert_eq!(
-            aot_run.stack, interpreter_run.stack,
-            "AOT result mismatch on trial {trial}",
-        );
 
         interpreter_times.push(interpreter_run.elapsed);
         jit_times.push(jit_run.elapsed);
-        aot_times.push(aot_run.elapsed);
     }
 
     let interpreter_median = median_duration(&mut interpreter_times);
     let jit_median = median_duration(&mut jit_times);
-    let aot_median = median_duration(&mut aot_times);
     let jit_speedup = interpreter_median.as_secs_f64() / jit_median.as_secs_f64();
-    let aot_speedup = interpreter_median.as_secs_f64() / aot_median.as_secs_f64();
 
     println!(
-        "tight-loop latency median: interpreter={}ms jit={}ms aot={}ms jit_speedup={:.2}x aot_speedup={:.2}x",
+        "tight-loop latency median: interpreter={}ms jit={}ms jit_speedup={:.2}x",
         interpreter_median.as_millis(),
         jit_median.as_millis(),
-        aot_median.as_millis(),
         jit_speedup,
-        aot_speedup,
     );
 
     assert!(
@@ -699,7 +676,6 @@ fn native_jit_supported() -> bool {
 enum PerfExecMode {
     Interpreter,
     Jit,
-    Aot,
 }
 
 fn run_sum_loop_with_mode(
@@ -709,16 +685,13 @@ fn run_sum_loop_with_mode(
     expected: i64,
 ) -> PerfRun {
     let mut vm = Vm::new(program.clone().with_local_count(local_count));
-    let enable_jit = mode != PerfExecMode::Interpreter;
+    let enable_jit = mode == PerfExecMode::Jit;
     vm.set_jit_config(JitConfig {
         enabled: enable_jit,
         hot_loop_threshold: 1,
         max_trace_len: 1_024,
     });
 
-    if mode == PerfExecMode::Aot {
-        vm.prepare_aot().expect("AOT precompile should succeed");
-    }
     let started = Instant::now();
     let status = vm.run().expect("vm should run");
     let elapsed = started.elapsed();

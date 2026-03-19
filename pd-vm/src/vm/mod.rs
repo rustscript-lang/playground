@@ -239,9 +239,6 @@ pub struct Vm {
     epoch_deadline_delta: u64,
     epoch_rearm_pending: bool,
     last_yield_reason: Option<VmYieldReason>,
-    native_only_aot: bool,
-    native_aot_interrupt_check_interval: Option<u32>,
-    native_aot_interrupt_mode: Option<InterruptMode>,
     drop_contract_events_enabled: bool,
     drop_contract_events: u64,
 }
@@ -373,9 +370,6 @@ impl Vm {
             epoch_deadline_delta: 0,
             epoch_rearm_pending: false,
             last_yield_reason: None,
-            native_only_aot: false,
-            native_aot_interrupt_check_interval: None,
-            native_aot_interrupt_mode: None,
             drop_contract_events_enabled: false,
             drop_contract_events: 0,
         }
@@ -402,46 +396,6 @@ impl Vm {
     #[inline(always)]
     fn interruption_enabled(&self) -> bool {
         self.interrupt_mode != InterruptMode::None
-    }
-
-    fn validate_native_aot_interrupt_interval(&self, interval: u32) -> VmResult<()> {
-        if let Some(expected) = self.native_aot_interrupt_check_interval {
-            if expected == 0 {
-                return Err(VmError::JitNative(
-                    "native-only AOT bundle was emitted without interruption checks".to_string(),
-                ));
-            }
-            if interval != expected {
-                return Err(VmError::JitNative(format!(
-                    "native-only AOT bundles require interrupt_check_interval={expected}, got {interval}",
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_native_aot_interrupt_runtime(&self) -> VmResult<()> {
-        if self.native_only_aot
-            && self.interruption_enabled()
-            && self.native_aot_interrupt_check_interval == Some(0)
-        {
-            return Err(VmError::JitNative(
-                "native-only AOT bundle was emitted without interruption checks and cannot run with cooperative interruption enabled"
-                    .to_string(),
-            ));
-        }
-        if self.native_only_aot
-            && self.interruption_enabled()
-            && let Some(expected_mode) = self.native_aot_interrupt_mode
-            && self.interrupt_mode != expected_mode
-        {
-            return Err(VmError::JitNative(format!(
-                "native-only AOT bundle was emitted for {} interruption and cannot run with {} interruption enabled",
-                expected_mode.label(),
-                self.interrupt_mode.label(),
-            )));
-        }
-        Ok(())
     }
 
     pub fn set_jit_native_bridge_stats_enabled(&mut self, enabled: bool) {
@@ -1015,7 +969,6 @@ impl Vm {
         mut debugger: Option<&mut crate::debugger::Debugger>,
         allow_jit: bool,
     ) -> VmResult<VmStatus> {
-        self.validate_native_aot_interrupt_runtime()?;
         self.ensure_call_bindings()?;
         if let Some(waiting) = self.waiting_host_op {
             self.last_yield_reason = None;
@@ -1062,13 +1015,6 @@ impl Vm {
                     }
                     continue;
                 }
-            }
-
-            if self.native_only_aot {
-                return Err(VmError::JitNative(format!(
-                    "native-only AOT bundle has no compiled trace for ip {}",
-                    self.ip
-                )));
             }
 
             if self.ip >= self.program.code.len() {

@@ -1,18 +1,20 @@
 use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
 use std::sync::OnceLock;
-use std::time::{Duration, Instant};
 
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use vm::{
-    CallOutcome, Debugger, DisassembleOptions, FunctionDecl, HostFunctionRegistry, HostImport,
-    JitConfig, ReplLocalBinding, SourceFlavor, SourceMap, SourcePathError, Value, Vm, VmError,
-    VmRecording, VmStatus, compile_source_file, compile_source_for_repl_with_locals,
-    disassemble_vmbc_with_options, encode_program, format_source_with_flavor, render_source_error,
-    render_vm_error, replay_recording_stdio,
+    CallOutcome, Debugger, DisassembleOptions, FunctionDecl, JitConfig, ReplLocalBinding,
+    SourceFlavor, SourceMap, SourcePathError, Value, Vm, VmError, VmRecording, VmStatus,
+    compile_source_file, compile_source_for_repl_with_locals, disassemble_vmbc_with_options,
+    encode_program, format_source_with_flavor, render_source_error, render_vm_error,
+    replay_recording_stdio,
 };
+#[cfg(test)]
+use vm::{HostFunctionRegistry, HostImport};
 
 const DEFAULT_SOURCE: &str = "examples/example.rss";
 
@@ -20,11 +22,8 @@ const DEFAULT_SOURCE: &str = "examples/example.rss";
 struct CliConfig {
     source: Option<String>,
     emit_vmbc_path: Option<String>,
-    emit_aot_path: Option<String>,
-    aot_fuel_check_interval: Option<u32>,
     epoch_check_interval: Option<u32>,
     disasm_vmbc_path: Option<String>,
-    run_aot_path: Option<String>,
     record_path: Option<String>,
     view_recording_path: Option<String>,
     show_source: bool,
@@ -48,11 +47,8 @@ impl Default for CliConfig {
         Self {
             source: None,
             emit_vmbc_path: None,
-            emit_aot_path: None,
-            aot_fuel_check_interval: None,
             epoch_check_interval: None,
             disasm_vmbc_path: None,
-            run_aot_path: None,
             record_path: None,
             view_recording_path: None,
             show_source: false,
@@ -114,45 +110,10 @@ fn run_main() -> Result<(), Box<dyn std::error::Error>> {
         replay_recording_stdio(&recording);
         return Ok(());
     }
-    if let Some(aot_path) = cli.run_aot_path.as_ref() {
-        let bytes = std::fs::read(aot_path)?;
-        let mut vm = Vm::from_aot_bundle_bytes(&bytes).map_err(io::Error::other)?;
-        apply_runtime_flags(&mut vm, &cli)?;
-        let imports = vm.program().imports.clone();
-        register_imports(&mut vm, &imports)?;
-        run_vm_loop(&mut vm, None, cli.fuel)?;
-        if cli.jit_dump {
-            println!(
-                "{}",
-                vm.dump_jit_info_with_machine_code(cli.jit_dump_show_machine_code)
-            );
-        }
-        return Ok(());
-    }
 
     let source_path = resolve_source_path(cli.source.as_deref())?;
-    let compile_started = Instant::now();
     let compiled = compile_source_file(&source_path)
         .map_err(|err| io::Error::other(render_source_path_error(&source_path, &err)))?;
-    if let Some(output_path) = cli.emit_aot_path.as_ref() {
-        let mut vm = new_cli_vm(compiled.program.with_local_count(compiled.locals), &cli);
-        let encoded = match cli.aot_fuel_check_interval.or(cli.epoch_check_interval) {
-            Some(interval) => vm
-                .emit_aot_bundle_with_fuel_check_interval(interval)
-                .map_err(|err| io::Error::other(render_vm_error(&vm, &err)))?,
-            None => vm
-                .emit_aot_bundle()
-                .map_err(|err| io::Error::other(render_vm_error(&vm, &err)))?,
-        };
-        std::fs::write(output_path, &encoded)?;
-        println!(
-            "wrote {} bytes to {} (compile {})",
-            encoded.len(),
-            output_path,
-            format_elapsed_duration(compile_started.elapsed())
-        );
-        return Ok(());
-    }
     if let Some(output_path) = cli.emit_vmbc_path.as_ref() {
         let encoded = encode_program(&compiled.program)?;
         std::fs::write(output_path, &encoded)?;
@@ -206,13 +167,6 @@ fn run_main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn apply_runtime_flags(vm: &mut Vm, cli: &CliConfig) -> Result<(), io::Error> {
-    if (cli.fuel.is_some() || cli.epoch_deadline.is_some())
-        && vm.aot_fuel_check_interval() == Some(0)
-    {
-        return Err(io::Error::other(
-            "native-only AOT bundle was emitted without interruption checks; rerun without --fuel/--epoch-deadline or re-emit with --fuel-check-interval/--epoch-check-interval > 0",
-        ));
-    }
     vm.set_jit_native_bridge_stats_enabled(cli.jit_dump);
     if let Some(interval) = cli.epoch_check_interval {
         vm.set_epoch_check_interval(interval)
@@ -397,10 +351,6 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
     {
         cfg.fmt = true;
         index = 1;
-    } else if let Some(first) = args.first()
-        && first == "aot"
-    {
-        return Err("legacy 'aot' CLI mode was removed; use --emit-aot or --run-aot".to_string());
     }
 
     while index < args.len() {
@@ -477,21 +427,6 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
                 cfg.emit_vmbc_path = Some(path.clone());
                 index += 2;
             }
-            "--emit-aot" => {
-                let path = args
-                    .get(index + 1)
-                    .ok_or_else(|| "missing value for --emit-aot".to_string())?;
-                cfg.emit_aot_path = Some(path.clone());
-                index += 2;
-            }
-            "--fuel-check-interval" => {
-                let raw = args
-                    .get(index + 1)
-                    .ok_or_else(|| "missing value for --fuel-check-interval".to_string())?;
-                cfg.aot_fuel_check_interval =
-                    Some(parse_cli_u32_flag("--fuel-check-interval", raw)?);
-                index += 2;
-            }
             "--epoch-check-interval" => {
                 let raw = args
                     .get(index + 1)
@@ -506,23 +441,10 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
                 cfg.disasm_vmbc_path = Some(path.clone());
                 index += 2;
             }
-            value if value.starts_with("--fuel-check-interval=") => {
-                let raw = value.trim_start_matches("--fuel-check-interval=");
-                cfg.aot_fuel_check_interval =
-                    Some(parse_cli_u32_flag("--fuel-check-interval", raw)?);
-                index += 1;
-            }
             value if value.starts_with("--epoch-check-interval=") => {
                 let raw = value.trim_start_matches("--epoch-check-interval=");
                 cfg.epoch_check_interval = Some(parse_cli_u32_flag("--epoch-check-interval", raw)?);
                 index += 1;
-            }
-            "--run-aot" => {
-                let path = args
-                    .get(index + 1)
-                    .ok_or_else(|| "missing value for --run-aot".to_string())?;
-                cfg.run_aot_path = Some(path.clone());
-                index += 2;
             }
             "--record" => {
                 let path = args
@@ -550,11 +472,6 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
                 cfg.repl = true;
                 index += 1;
             }
-            "--aot" => {
-                return Err(
-                    "legacy '--aot' CLI mode was removed; use --emit-aot or --run-aot".to_string(),
-                );
-            }
             value if value.starts_with('-') => {
                 return Err(format!("unknown flag '{value}'"));
             }
@@ -577,13 +494,8 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
     if cfg.fuel.is_some() && cfg.epoch_deadline.is_some() {
         return Err("--fuel and --epoch-deadline are mutually exclusive".to_string());
     }
-    if cfg.fuel.is_some() && cfg.epoch_check_interval.is_some() && cfg.emit_aot_path.is_none() {
+    if cfg.fuel.is_some() && cfg.epoch_check_interval.is_some() {
         return Err("--fuel cannot be combined with --epoch-check-interval".to_string());
-    }
-    if cfg.aot_fuel_check_interval.is_some() && cfg.epoch_check_interval.is_some() {
-        return Err(
-            "--fuel-check-interval and --epoch-check-interval are mutually exclusive".to_string(),
-        );
     }
 
     if cfg.repl {
@@ -598,9 +510,7 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
             || cfg.epoch_deadline.is_some()
             || cfg.epoch_check_interval.is_some()
             || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
             || cfg.disasm_vmbc_path.is_some()
-            || cfg.run_aot_path.is_some()
             || cfg.record_path.is_some()
             || cfg.view_recording_path.is_some()
         {
@@ -623,8 +533,6 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
             || cfg.epoch_deadline.is_some()
             || cfg.epoch_check_interval.is_some()
             || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
-            || cfg.run_aot_path.is_some()
             || cfg.record_path.is_some()
             || cfg.view_recording_path.is_some()
         {
@@ -648,75 +556,22 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
             || cfg.jit_hot_loop_threshold.is_some()
             || cfg.fuel.is_some()
             || cfg.epoch_deadline.is_some()
-            || cfg.aot_fuel_check_interval.is_some()
             || cfg.epoch_check_interval.is_some()
             || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
             || cfg.disasm_vmbc_path.is_some()
-            || cfg.run_aot_path.is_some()
             || cfg.record_path.is_some()
             || cfg.view_recording_path.is_some()
             || cfg.show_source
         {
             return Err(
-                "fmt mode cannot be combined with repl/debug/jit/fuel/epoch/emit/disasm/run-aot/record flags"
+                "fmt mode cannot be combined with repl/debug/jit/fuel/epoch/emit/disasm/record flags"
                     .to_string(),
             );
         }
     }
 
-    if cfg.emit_vmbc_path.is_some() && cfg.emit_aot_path.is_some() {
-        return Err("cannot combine --emit-vmbc with --emit-aot".to_string());
-    }
-    if cfg.aot_fuel_check_interval.is_some() && cfg.emit_aot_path.is_none() {
-        return Err("--fuel-check-interval requires --emit-aot".to_string());
-    }
-    if cfg.epoch_check_interval.is_some()
-        && cfg.emit_aot_path.is_none()
-        && cfg.epoch_deadline.is_none()
-        && !cfg.debug
-    {
-        return Err(
-            "--epoch-check-interval requires --emit-aot, --epoch-deadline, or --debug".to_string(),
-        );
-    }
-    if cfg.emit_aot_path.is_some()
-        && (cfg.debug
-            || cfg.tcp_addr.is_some()
-            || cfg.jit_dump
-            || cfg.jit_hot_loop_threshold.is_some()
-            || cfg.fuel.is_some()
-            || cfg.epoch_deadline.is_some()
-            || cfg.disasm_vmbc_path.is_some()
-            || cfg.run_aot_path.is_some()
-            || cfg.record_path.is_some()
-            || cfg.view_recording_path.is_some()
-            || cfg.show_source)
-    {
-        return Err(
-            "emit-aot mode cannot be combined with debug/jit/fuel/epoch/disasm/run-aot/record flags"
-                .to_string(),
-        );
-    }
-    if cfg.run_aot_path.is_some() {
-        if cfg.source.is_some() {
-            return Err("run-aot mode does not accept a source path".to_string());
-        }
-        if cfg.repl
-            || cfg.debug
-            || cfg.tcp_addr.is_some()
-            || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
-            || cfg.disasm_vmbc_path.is_some()
-            || cfg.record_path.is_some()
-            || cfg.view_recording_path.is_some()
-            || cfg.show_source
-        {
-            return Err(
-                "run-aot mode cannot be combined with repl/debug/emit/disasm/record flags"
-                    .to_string(),
-            );
-        }
+    if cfg.epoch_check_interval.is_some() && cfg.epoch_deadline.is_none() && !cfg.debug {
+        return Err("--epoch-check-interval requires --epoch-deadline or --debug".to_string());
     }
     if cfg.record_path.is_some()
         && (cfg.debug
@@ -724,9 +579,7 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
             || cfg.jit_dump
             || cfg.jit_hot_loop_threshold.is_some()
             || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
             || cfg.disasm_vmbc_path.is_some()
-            || cfg.run_aot_path.is_some()
             || cfg.view_recording_path.is_some()
             || cfg.show_source)
     {
@@ -745,9 +598,7 @@ fn parse_cli_args(args: &[String]) -> Result<CliConfig, String> {
             || cfg.epoch_deadline.is_some()
             || cfg.epoch_check_interval.is_some()
             || cfg.emit_vmbc_path.is_some()
-            || cfg.emit_aot_path.is_some()
             || cfg.disasm_vmbc_path.is_some()
-            || cfg.run_aot_path.is_some()
             || cfg.record_path.is_some()
             || cfg.show_source)
     {
@@ -796,6 +647,7 @@ fn register_functions(vm: &mut Vm, functions: &[FunctionDecl]) -> Result<(), io:
     Ok(())
 }
 
+#[cfg(test)]
 fn register_imports(vm: &mut Vm, imports: &[HostImport]) -> Result<(), io::Error> {
     for import in imports {
         if import.name.starts_with("http::") {
@@ -849,6 +701,7 @@ fn cli_jit_config(cli: &CliConfig) -> JitConfig {
     jit_config
 }
 
+#[cfg(test)]
 fn cli_host_registry() -> &'static HostFunctionRegistry {
     static REGISTRY: OnceLock<HostFunctionRegistry> = OnceLock::new();
     REGISTRY.get_or_init(|| {
@@ -869,12 +722,6 @@ fn print_usage() {
     println!("  pd-vm-run --repl");
     println!("  pd-vm-run repl");
     println!("  pd-vm-run --emit-vmbc <output.vmbc> [source_path]");
-    println!(
-        "  pd-vm-run --emit-aot <output.pat> [--fuel-check-interval <n>|--epoch-check-interval <n>] [source_path]"
-    );
-    println!(
-        "  pd-vm-run --run-aot <input.pat> [--fuel <n>|--epoch-deadline <n>] [--epoch-check-interval <n>] [--jit-dump|--dump-jit] [--jit-dump-no-code]"
-    );
     println!("  pd-vm-run --disasm-vmbc <input.vmbc> [--show-source]");
     println!("  pd-vm-run --record <output.pdr> [source_path]");
     println!("  pd-vm-run --view-record <input.pdr>");
@@ -1344,20 +1191,11 @@ fn hex_nibble(value: u8) -> char {
     }
 }
 
-fn format_elapsed_duration(elapsed: Duration) -> String {
-    if elapsed.as_secs() > 0 {
-        format!("{:.3}s", elapsed.as_secs_f64())
-    } else {
-        format!("{}ms", elapsed.as_millis())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-    use super::{Path, compile_source_file, parse_cli_args, register_imports};
+    use super::{parse_cli_args, register_imports};
     use vm::{HostImport, OpCode, Program, Value, ValueType, Vm, VmStatus};
 
     fn s(value: &str) -> String {
@@ -1415,18 +1253,6 @@ mod tests {
         assert_eq!(second.bound_function_count(), 2);
     }
 
-    fn temp_aot_path(name: &str) -> std::path::PathBuf {
-        let unique = format!(
-            "pd_vm_{name}_{}_{}.pat",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after unix epoch")
-                .as_nanos()
-        );
-        std::env::temp_dir().join(unique)
-    }
-
     #[test]
     fn parse_cli_defaults() {
         let cfg = parse_cli_args(&[]).expect("parse should succeed");
@@ -1441,9 +1267,6 @@ mod tests {
         assert!(cfg.fuel.is_none());
         assert!(cfg.epoch_deadline.is_none());
         assert!(cfg.source.is_none());
-        assert!(cfg.run_aot_path.is_none());
-        assert!(cfg.emit_aot_path.is_none());
-        assert!(cfg.aot_fuel_check_interval.is_none());
         assert!(cfg.epoch_check_interval.is_none());
         assert!(cfg.emit_vmbc_path.is_none());
         assert!(cfg.disasm_vmbc_path.is_none());
@@ -1580,128 +1403,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_cli_emit_aot_path() {
-        let cfg = parse_cli_args(&[
-            s("--emit-aot"),
-            s("out/program.pat"),
-            s("examples/example.rss"),
-        ])
-        .expect("parse should succeed");
-        assert_eq!(cfg.emit_aot_path.as_deref(), Some("out/program.pat"));
-        assert!(cfg.aot_fuel_check_interval.is_none());
-        assert_eq!(cfg.source.as_deref(), Some("examples/example.rss"));
-    }
-
-    #[test]
-    fn parse_cli_emit_aot_requires_path() {
-        let err = parse_cli_args(&[s("--emit-aot")]).expect_err("parse should fail");
-        assert!(err.contains("missing value for --emit-aot"));
-    }
-
-    #[test]
-    fn parse_cli_emit_aot_fuel_check_interval_path() {
-        let cfg = parse_cli_args(&[
-            s("--emit-aot"),
-            s("out/program.pat"),
-            s("--fuel-check-interval"),
-            s("0"),
-            s("examples/example.rss"),
-        ])
-        .expect("parse should succeed");
-        assert_eq!(cfg.emit_aot_path.as_deref(), Some("out/program.pat"));
-        assert_eq!(cfg.aot_fuel_check_interval, Some(0));
-        assert_eq!(cfg.source.as_deref(), Some("examples/example.rss"));
-    }
-
-    #[test]
-    fn parse_cli_emit_aot_fuel_check_interval_equals_syntax() {
-        let cfg = parse_cli_args(&[
-            s("--emit-aot"),
-            s("out/program.pat"),
-            s("--fuel-check-interval=64"),
-            s("examples/example.rss"),
-        ])
-        .expect("parse should succeed");
-        assert_eq!(cfg.aot_fuel_check_interval, Some(64));
-    }
-
-    #[test]
-    fn parse_cli_emit_aot_epoch_check_interval_path() {
-        let cfg = parse_cli_args(&[
-            s("--emit-aot"),
-            s("out/program.pat"),
-            s("--epoch-check-interval"),
-            s("8"),
-            s("examples/example.rss"),
-        ])
-        .expect("parse should succeed");
-        assert_eq!(cfg.emit_aot_path.as_deref(), Some("out/program.pat"));
-        assert_eq!(cfg.epoch_check_interval, Some(8));
-    }
-
-    #[test]
-    fn parse_cli_fuel_check_interval_requires_emit_aot() {
-        let err = parse_cli_args(&[
-            s("--fuel-check-interval"),
-            s("64"),
-            s("examples/example.rss"),
-        ])
-        .expect_err("parse should fail");
-        assert!(err.contains("requires --emit-aot"));
-    }
-
-    #[test]
-    fn parse_cli_rejects_emit_aot_with_emit_vmbc() {
-        let err = parse_cli_args(&[
-            s("--emit-aot"),
-            s("out/program.pat"),
-            s("--emit-vmbc"),
-            s("out/program.vmbc"),
-            s("examples/example.rss"),
-        ])
-        .expect_err("parse should fail");
-        assert!(err.contains("cannot combine --emit-vmbc with --emit-aot"));
-    }
-
-    #[test]
-    fn parse_cli_run_aot_path() {
-        let cfg = parse_cli_args(&[s("--run-aot"), s("out/program.pat"), s("--jit-dump")])
-            .expect("parse should succeed");
-        assert_eq!(cfg.run_aot_path.as_deref(), Some("out/program.pat"));
-        assert!(cfg.aot_fuel_check_interval.is_none());
-        assert!(cfg.jit_dump);
-        assert!(cfg.jit_dump_show_machine_code);
-        assert!(cfg.source.is_none());
-    }
-
-    #[test]
-    fn parse_cli_run_aot_rejects_source_path() {
-        let err = parse_cli_args(&[
-            s("--run-aot"),
-            s("out/program.pat"),
-            s("examples/example.rss"),
-        ])
-        .expect_err("parse should fail");
-        assert!(err.contains("run-aot mode does not accept a source path"));
-    }
-
-    #[test]
-    fn parse_cli_aot_flag_is_rejected() {
-        let err = parse_cli_args(&[s("--aot"), s("examples/example.rss")])
-            .expect_err("parse should fail");
-        assert!(err.contains("removed"));
-        assert!(err.contains("--emit-aot"));
-    }
-
-    #[test]
-    fn parse_cli_aot_legacy_command_is_rejected() {
-        let err =
-            parse_cli_args(&[s("aot"), s("examples/example.rss")]).expect_err("parse should fail");
-        assert!(err.contains("removed"));
-        assert!(err.contains("--run-aot"));
-    }
-
-    #[test]
     fn parse_cli_disasm_vmbc_path() {
         let cfg = parse_cli_args(&[
             s("--disasm-vmbc"),
@@ -1835,244 +1536,6 @@ mod tests {
         let err =
             parse_cli_args(&[s("--repl"), s("--fuel"), s("10")]).expect_err("parse should fail");
         assert!(err.contains("cannot be combined"));
-    }
-
-    #[test]
-    fn native_aot_bundle_roundtrips_through_vm_api() {
-        let compiled = vm::compile_source("let x = 7; x;").expect("compile should succeed");
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm.emit_aot_bundle().expect("AOT emit should succeed");
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&encoded).expect("AOT load should succeed");
-        assert_eq!(loaded.aot_fuel_check_interval(), Some(64));
-        assert_eq!(loaded.fuel_check_interval(), 64);
-        assert!(
-            loaded.program().code.iter().all(|byte| *byte == 0xFF),
-            "loaded AOT bundle should use placeholder code bytes instead of persisted bytecode"
-        );
-        let status = loaded.run().expect("native-only AOT bundle should run");
-        assert_eq!(status, VmStatus::Halted);
-        assert_eq!(loaded.stack(), &[Value::Int(7)]);
-    }
-
-    #[test]
-    fn native_aot_bundle_can_disable_fuel_checks() {
-        let compiled = vm::compile_source("let x = 7; x;").expect("compile should succeed");
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm
-            .emit_aot_bundle_with_fuel_check_interval(0)
-            .expect("AOT emit with disabled fuel checks should succeed");
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&encoded).expect("AOT load should succeed");
-        assert_eq!(loaded.aot_fuel_check_interval(), Some(0));
-        assert_eq!(loaded.fuel_check_interval(), 0);
-        let status = loaded.run().expect("native-only AOT bundle should run");
-        assert_eq!(status, VmStatus::Halted);
-        assert_eq!(loaded.stack(), &[Value::Int(7)]);
-
-        let mut fueled = Vm::from_aot_bundle_bytes(&encoded).expect("AOT reload should succeed");
-        fueled.set_fuel(1);
-        let err = fueled
-            .run()
-            .expect_err("bundle without fuel checks should reject fuel-enabled execution");
-        assert!(
-            err.to_string()
-                .contains("emitted without interruption checks and cannot run with cooperative interruption enabled")
-        );
-
-        let mut epoch_enabled =
-            Vm::from_aot_bundle_bytes(&encoded).expect("AOT reload should succeed");
-        epoch_enabled
-            .set_epoch_deadline(0)
-            .expect("setting epoch deadline should succeed");
-        let err = epoch_enabled
-            .run()
-            .expect_err("bundle without checks should reject epoch-enabled execution");
-        assert!(
-            err.to_string()
-                .contains("emitted without interruption checks and cannot run with cooperative interruption enabled")
-        );
-    }
-
-    #[test]
-    fn native_aot_bundle_resumes_after_out_of_fuel_yield_mid_trace() {
-        let compiled = vm::compile_source(
-            "let a = 1; let b = 2; let c = 3; let d = 4; let e = 5; a + b + c + d + e;",
-        )
-        .expect("compile should succeed");
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm
-            .emit_aot_bundle_with_fuel_check_interval(1)
-            .expect("AOT emit should succeed");
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&encoded).expect("AOT load should succeed");
-        loaded.set_fuel(1);
-
-        let mut yielded_ips = Vec::new();
-        loop {
-            match loaded.resume().expect("AOT resume should succeed") {
-                VmStatus::Halted => break,
-                VmStatus::Yielded => {
-                    yielded_ips.push(loaded.ip());
-                    loaded
-                        .recharge_fuel(1)
-                        .expect("recharging fuel should succeed");
-                }
-                VmStatus::Waiting(op_id) => {
-                    panic!("unexpected waiting host op {op_id} in pure AOT fuel test");
-                }
-            }
-        }
-
-        assert!(
-            yielded_ips.iter().any(|&ip| ip != 0),
-            "expected at least one mid-trace fuel yield, got {yielded_ips:?}"
-        );
-        assert_eq!(loaded.stack(), &[Value::Int(15)]);
-    }
-
-    #[test]
-    fn native_aot_bundle_resumes_after_epoch_yield_mid_trace() {
-        let compiled = vm::compile_source(
-            r#"
-                let mut i = 0;
-                while i < 5000000 {
-                    i = i + 1;
-                }
-                i;
-            "#,
-        )
-        .expect("compile should succeed");
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm
-            .emit_aot_bundle_with_epoch_check_interval(1)
-            .expect("AOT emit should succeed");
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&encoded).expect("AOT load should succeed");
-        let epoch_handle = loaded.epoch_handle();
-        loaded
-            .set_epoch_deadline(1)
-            .expect("setting epoch deadline should succeed");
-        let ticker = std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(1));
-            epoch_handle.increment();
-        });
-
-        let mut yielded_ips = Vec::new();
-        loop {
-            match loaded.resume().expect("AOT resume should succeed") {
-                VmStatus::Halted => break,
-                VmStatus::Yielded => {
-                    assert_eq!(loaded.last_yield_reason(), Some(vm::VmYieldReason::Epoch));
-                    yielded_ips.push(loaded.ip());
-                }
-                VmStatus::Waiting(op_id) => {
-                    panic!("unexpected waiting host op {op_id} in pure AOT epoch test");
-                }
-            }
-        }
-        ticker.join().expect("epoch ticker thread should join");
-
-        assert!(
-            yielded_ips.iter().any(|&ip| ip != 0),
-            "expected at least one mid-trace epoch yield, got {yielded_ips:?}"
-        );
-        assert_eq!(loaded.stack(), &[Value::Int(5_000_000)]);
-    }
-
-    #[test]
-    fn native_aot_bundle_rejects_mismatched_interrupt_mode() {
-        let compiled = vm::compile_source("let mut i = 0; while i < 16 { i = i + 1; } i;")
-            .expect("compile should succeed");
-
-        let mut fuel_vm = Vm::new(compiled.program.clone().with_local_count(compiled.locals));
-        let fuel_encoded = fuel_vm
-            .emit_aot_bundle_with_fuel_check_interval(4)
-            .expect("fuel AOT emit should succeed");
-        let mut fuel_loaded =
-            Vm::from_aot_bundle_bytes(&fuel_encoded).expect("AOT load should succeed");
-        fuel_loaded
-            .set_epoch_check_interval(4)
-            .expect("epoch interval update should succeed");
-        fuel_loaded
-            .set_epoch_deadline(1)
-            .expect("setting epoch deadline should succeed");
-        let fuel_err = fuel_loaded
-            .run()
-            .expect_err("fuel-specialized bundle should reject epoch interruption");
-        assert!(fuel_err.to_string().contains(
-            "emitted for fuel interruption and cannot run with epoch interruption enabled"
-        ));
-
-        let mut epoch_vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let epoch_encoded = epoch_vm
-            .emit_aot_bundle_with_epoch_check_interval(4)
-            .expect("epoch AOT emit should succeed");
-        let mut epoch_loaded =
-            Vm::from_aot_bundle_bytes(&epoch_encoded).expect("AOT load should succeed");
-        epoch_loaded
-            .set_fuel_check_interval(4)
-            .expect("fuel interval update should succeed");
-        epoch_loaded.set_fuel(128);
-        let epoch_err = epoch_loaded
-            .run()
-            .expect_err("epoch-specialized bundle should reject fuel interruption");
-        assert!(epoch_err.to_string().contains(
-            "emitted for epoch interruption and cannot run with fuel interruption enabled"
-        ));
-    }
-
-    #[test]
-    fn native_aot_bundle_runs_complex_javascript_fixture() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/example_complex.js");
-        let compiled = compile_source_file(&path).expect("fixture should compile");
-        let imports = compiled.program.imports.clone();
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm
-            .emit_aot_bundle()
-            .expect("complex fixture AOT emit should succeed");
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&encoded).expect("AOT load should succeed");
-        register_imports(&mut loaded, &imports).expect("imports should register");
-        loop {
-            match loaded.run().expect("native-only AOT bundle should run") {
-                VmStatus::Halted => break,
-                VmStatus::Yielded => continue,
-                VmStatus::Waiting(_) => loaded
-                    .wait_for_host_op_blocking()
-                    .expect("fixture host calls should complete"),
-            }
-        }
-        assert_eq!(loaded.stack(), &[Value::Int(12)]);
-    }
-
-    #[test]
-    fn native_aot_bundle_saves_reads_and_runs_complex_rustscript_fixture() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/example_complex.rss");
-        let compiled = compile_source_file(&path).expect("fixture should compile");
-        let imports = compiled.program.imports.clone();
-        let mut vm = Vm::new(compiled.program.with_local_count(compiled.locals));
-        let encoded = vm
-            .emit_aot_bundle()
-            .expect("complex rustscript fixture AOT emit should succeed");
-        let aot_path = temp_aot_path("complex_rustscript_aot");
-        std::fs::write(&aot_path, &encoded).expect("AOT bundle should write to disk");
-
-        let bytes = std::fs::read(&aot_path).expect("AOT bundle should read from disk");
-        let _ = std::fs::remove_file(&aot_path);
-
-        let mut loaded = Vm::from_aot_bundle_bytes(&bytes).expect("AOT load should succeed");
-        register_imports(&mut loaded, &imports).expect("imports should register");
-        loop {
-            match loaded.run().expect("native-only AOT bundle should run") {
-                VmStatus::Halted => break,
-                VmStatus::Yielded => continue,
-                VmStatus::Waiting(_) => loaded
-                    .wait_for_host_op_blocking()
-                    .expect("fixture host calls should complete"),
-            }
-        }
-        assert_eq!(loaded.stack(), &[Value::Int(12)]);
     }
 
     #[test]

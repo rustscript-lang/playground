@@ -32,14 +32,13 @@ use codegen::{
     emit_interrupt_tick_inline_guarded, entry_signature, helper_signature, jump_with_status,
     resolve_offsets,
 };
-use layout::{detect_native_stack_layout, native_layout_fingerprint};
+use layout::detect_native_stack_layout;
 
 type FuncRef = SigRef;
 
 static CRANELIFT_TRACE_ID: AtomicU64 = AtomicU64::new(1);
 static NATIVE_STACK_LAYOUT: OnceLock<Result<NativeStackLayout, String>> = OnceLock::new();
 static CRANELIFT_JIT_ISA: OnceLock<Result<OwnedTargetIsa, String>> = OnceLock::new();
-static CRANELIFT_AOT_ISA: OnceLock<Result<OwnedTargetIsa, String>> = OnceLock::new();
 
 const OP_LDC: i64 = 1;
 const OP_ADD: i64 = 2;
@@ -154,10 +153,6 @@ pub(crate) fn helper_entry_address() -> usize {
 
 pub(crate) fn sconcat_helper_entry_address() -> usize {
     pd_vm_cranelift_sconcat as *const () as usize
-}
-
-pub(crate) fn layout_fingerprint() -> VmResult<u64> {
-    native_layout_fingerprint()
 }
 
 pub(super) fn native_helper_fn_offset() -> i32 {
@@ -379,25 +374,14 @@ fn resolve_loop_target_indices(trace: &JitTrace) -> VmResult<HashMap<usize, usiz
     Ok(targets)
 }
 
-pub(crate) fn load_compiled_trace(code: &[u8]) -> VmResult<CompiledTrace> {
-    let keepalive = TraceKeepAlive::from_code(code)?;
-    let entry = keepalive.entry();
-    Ok(CompiledTrace {
-        entry,
-        keepalive,
-        code: code.to_vec(),
-    })
-}
-
 fn native_isa(profile: NativeCompileProfile) -> VmResult<OwnedTargetIsa> {
-    let (cached, opt_level) = match profile {
-        NativeCompileProfile::Jit => (&CRANELIFT_JIT_ISA, "speed"),
-        NativeCompileProfile::Aot => (&CRANELIFT_AOT_ISA, "speed_and_size"),
+    let cached = match profile {
+        NativeCompileProfile::Jit => &CRANELIFT_JIT_ISA,
     };
     let cached = cached.get_or_init(|| {
         let mut flag_builder = settings::builder();
         flag_builder
-            .set("opt_level", opt_level)
+            .set("opt_level", "speed")
             .map_err(|err| format!("failed to set cranelift opt_level: {err}"))?;
         let isa_builder = cranelift_native::builder()
             .map_err(|err| format!("failed to build native ISA: {err}"))?;

@@ -61,92 +61,6 @@ fn loop_if_false_root_program() -> ManualTraceProgram {
     }
 }
 
-fn loop_if_false_internal_target_program() -> ManualTraceProgram {
-    let mut bc = BytecodeBuilder::new();
-    bc.ldc(3);
-    bc.pop();
-    bc.ldc(0);
-    bc.stloc(0);
-    let target_ip = bc.position();
-    bc.ldloc(0);
-    bc.ldc(1);
-    bc.add();
-    bc.stloc(0);
-    bc.ldloc(0);
-    bc.ldc(2);
-    bc.ceq();
-    let loop_if_false_ip = bc.position();
-    bc.brfalse(0);
-    let exit_ip = bc.position();
-    bc.ldloc(0);
-    bc.ret();
-
-    let mut code = bc.finish();
-    patch_branch_target(&mut code, loop_if_false_ip, target_ip);
-
-    ManualTraceProgram {
-        program: vm::Program::new(
-            vec![Value::Int(0), Value::Int(1), Value::Int(4), Value::Int(999)],
-            code,
-        )
-        .with_local_count(1),
-        root_ip: 0,
-        target_ip: target_ip as usize,
-        exit_ip: exit_ip as usize,
-    }
-}
-
-fn backward_guard_outside_trace_program() -> ManualTraceProgram {
-    let mut bc = BytecodeBuilder::new();
-    bc.ldc(0);
-    bc.stloc(0);
-    let target_ip = bc.position();
-    bc.ldloc(0);
-    bc.ldc(1);
-    bc.add();
-    bc.stloc(0);
-    let entry_jump_ip = bc.position();
-    bc.br(0);
-
-    let root_ip = bc.position();
-    bc.ldloc(0);
-    bc.ldc(2);
-    bc.clt();
-    let exit_guard_ip = bc.position();
-    bc.brfalse(0);
-    bc.ldloc(0);
-    bc.ldc(3);
-    bc.ceq();
-    let outside_guard_ip = bc.position();
-    bc.brfalse(0);
-    bc.ldloc(0);
-    bc.ldc(1);
-    bc.add();
-    bc.stloc(0);
-    let loop_back_ip = bc.position();
-    bc.br(0);
-    let exit_ip = bc.position();
-    bc.ldloc(0);
-    bc.ret();
-
-    let mut code = bc.finish();
-    patch_branch_target(&mut code, entry_jump_ip, root_ip);
-    patch_branch_target(&mut code, exit_guard_ip, exit_ip);
-    patch_branch_target(&mut code, outside_guard_ip, target_ip);
-    patch_branch_target(&mut code, loop_back_ip, root_ip);
-
-    ManualTraceProgram {
-        program: vm::Program::new(
-            vec![Value::Int(0), Value::Int(1), Value::Int(4), Value::Int(2)],
-            code,
-        )
-        .with_local_count(1),
-        root_ip: root_ip as usize,
-        target_ip: target_ip as usize,
-        exit_ip: exit_ip as usize,
-    }
-}
-
 struct UnusedBuiltinOverride;
 
 impl HostFunction for UnusedBuiltinOverride {
@@ -204,92 +118,12 @@ fn jit_supports_backward_brfalse_to_trace_root() {
 }
 
 #[test]
-fn aot_supports_backward_brfalse_to_earlier_non_root_step() {
-    if !native_jit_supported() {
-        return;
-    }
-
-    let case = loop_if_false_internal_target_program();
-    let mut vm = Vm::new(case.program);
-    configure_jit(&mut vm);
-
-    let prepared = vm.prepare_aot().expect("AOT prepare should succeed");
-    assert!(
-        prepared > 0,
-        "expected AOT compilation for internal loop target"
-    );
-    let snapshot = vm.jit_snapshot();
-    let trace = snapshot
-        .traces
-        .iter()
-        .find(|trace| trace.root_ip == case.root_ip)
-        .expect("expected a root trace from AOT prepare");
-    assert_ne!(
-        case.root_ip, case.target_ip,
-        "test must target a non-root step"
-    );
-    assert!(
-        trace.steps.iter().any(|step| matches!(
-            step,
-            TraceStep::LoopIfFalse { target_ip, exit_ip }
-                if *target_ip == case.target_ip && *exit_ip == case.exit_ip
-        )),
-        "expected loop_if_false to target an earlier non-root step, dump:\n{}",
-        vm.dump_jit_info()
-    );
-
-    let status = vm.run().expect("vm should run");
-    assert_eq!(status, VmStatus::Halted);
-    assert_eq!(vm.stack(), &[Value::Int(4)]);
-    assert!(
-        vm.jit_native_exec_count() > 0,
-        "expected native AOT execution for non-root loop target, dump:\n{}",
-        vm.dump_jit_info()
-    );
-}
+#[ignore = "AOT path removed pending full-program AOT"]
+fn aot_supports_backward_brfalse_to_earlier_non_root_step() {}
 
 #[test]
-fn aot_keeps_backward_brfalse_outside_trace_as_guard_false() {
-    if !native_jit_supported() {
-        return;
-    }
-
-    let case = backward_guard_outside_trace_program();
-    let mut vm = Vm::new(case.program);
-    configure_jit(&mut vm);
-
-    let prepared = vm.prepare_aot().expect("AOT prepare should succeed");
-    assert!(
-        prepared > 0,
-        "expected AOT compilation for out-of-trace guard"
-    );
-    let snapshot = vm.jit_snapshot();
-    let trace = snapshot
-        .traces
-        .iter()
-        .find(|trace| trace.root_ip == case.root_ip)
-        .expect("expected a compiled trace rooted at the forward entry block");
-    assert!(
-        trace.steps.iter().any(|step| matches!(
-            step,
-            TraceStep::GuardFalse { exit_ip } if *exit_ip == case.target_ip
-        )),
-        "expected backward target outside the trace to stay as guard_false, dump:\n{}",
-        vm.dump_jit_info()
-    );
-    assert!(
-        !trace.steps.iter().any(|step| matches!(
-            step,
-            TraceStep::LoopIfFalse { target_ip, .. } if *target_ip == case.target_ip
-        )),
-        "unexpected loop_if_false for out-of-trace target, dump:\n{}",
-        vm.dump_jit_info()
-    );
-
-    let status = vm.run().expect("vm should run");
-    assert_eq!(status, VmStatus::Halted);
-    assert_eq!(vm.stack(), &[Value::Int(4)]);
-}
+#[ignore = "AOT path removed pending full-program AOT"]
+fn aot_keeps_backward_brfalse_outside_trace_as_guard_false() {}
 
 #[test]
 fn trace_interpreter_path_executes_loop_if_false() {
@@ -332,45 +166,8 @@ fn trace_interpreter_path_executes_loop_if_false() {
 }
 
 #[test]
-fn aot_bundle_roundtrips_loop_if_false_traces() {
-    if !native_jit_supported() {
-        return;
-    }
-
-    let case = loop_if_false_internal_target_program();
-    let mut vm = Vm::new(case.program);
-    configure_jit(&mut vm);
-
-    let bundle = vm
-        .emit_aot_bundle()
-        .expect("AOT bundle emit should succeed");
-    let mut loaded = Vm::from_aot_bundle_bytes(&bundle).expect("AOT bundle load should succeed");
-
-    let snapshot = loaded.jit_snapshot();
-    let trace = snapshot
-        .traces
-        .iter()
-        .find(|trace| trace.root_ip == case.root_ip)
-        .expect("expected loop trace in loaded AOT bundle");
-    assert!(
-        trace.steps.iter().any(|step| matches!(
-            step,
-            TraceStep::LoopIfFalse { target_ip, exit_ip }
-                if *target_ip == case.target_ip && *exit_ip == case.exit_ip
-        )),
-        "expected loop_if_false to survive AOT roundtrip, dump:\n{}",
-        loaded.dump_jit_info()
-    );
-
-    let status = loaded.run().expect("loaded AOT vm should run");
-    assert_eq!(status, VmStatus::Halted);
-    assert_eq!(loaded.stack(), &[Value::Int(4)]);
-    assert!(
-        loaded.jit_native_exec_count() > 0,
-        "expected loaded AOT trace to execute natively, dump:\n{}",
-        loaded.dump_jit_info()
-    );
-}
+#[ignore = "AOT path removed pending full-program AOT"]
+fn aot_bundle_roundtrips_loop_if_false_traces() {}
 
 #[test]
 fn jit_records_trace_too_long_nyi_and_preserves_results() {

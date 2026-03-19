@@ -18,7 +18,6 @@ const DEFAULT_RUN_TRIALS: usize = 7;
 const DEFAULT_RSS_VM_COUNT: usize = 256;
 const DEFAULT_HOT_LOOP_INNER: i64 = 40_000;
 const DEFAULT_HOT_LOOP_OUTER: i64 = 8;
-const DEFAULT_AOT_ITERS: usize = 7;
 const LOAD_HOST_COUNTS: [usize; 6] = [0, 1, 10, 50, 100, 500];
 
 fn main() {
@@ -38,7 +37,6 @@ fn real_main() -> Result<(), String> {
 
     print_banner(&config);
     benchmark_compile(&config)?;
-    benchmark_aot_compile(&config)?;
     benchmark_load(&config)?;
     benchmark_runtime(&config)?;
     benchmark_rss(&config)?;
@@ -49,7 +47,6 @@ fn real_main() -> Result<(), String> {
 enum PerfExecMode {
     Interpreter,
     Jit,
-    Aot,
 }
 
 impl PerfExecMode {
@@ -57,7 +54,6 @@ impl PerfExecMode {
         match self {
             Self::Interpreter => "interpreter",
             Self::Jit => "jit",
-            Self::Aot => "aot",
         }
     }
 }
@@ -95,7 +91,6 @@ struct BenchConfig {
     rss_vm_count: usize,
     hot_loop_inner: i64,
     hot_loop_outer: i64,
-    aot_iters: usize,
     rss_child_mode: Option<RssMode>,
 }
 
@@ -110,7 +105,6 @@ impl Default for BenchConfig {
             rss_vm_count: DEFAULT_RSS_VM_COUNT,
             hot_loop_inner: DEFAULT_HOT_LOOP_INNER,
             hot_loop_outer: DEFAULT_HOT_LOOP_OUTER,
-            aot_iters: DEFAULT_AOT_ITERS,
             rss_child_mode: None,
         }
     }
@@ -147,9 +141,6 @@ impl BenchConfig {
                 "--hot-loop-outer" => {
                     config.hot_loop_outer = parse_i64_flag("--hot-loop-outer", args.next())?;
                 }
-                "--aot-iters" => {
-                    config.aot_iters = parse_usize_flag("--aot-iters", args.next())?;
-                }
                 "--rss-child" => {
                     let value = args
                         .next()
@@ -173,7 +164,6 @@ impl BenchConfig {
             || config.load_iters == 0
             || config.run_trials == 0
             || config.rss_vm_count == 0
-            || config.aot_iters == 0
         {
             return Err("iteration counts must be >= 1".to_string());
         }
@@ -209,13 +199,12 @@ fn print_help() {
     println!("  --rss-vms <n>");
     println!("  --hot-loop-inner <n>");
     println!("  --hot-loop-outer <n>");
-    println!("  --aot-iters <n>");
 }
 
 fn print_banner(config: &BenchConfig) {
     println!("pd-vm mini benchmark platform");
     println!(
-        "config: compile_iters={} compile_stress_lines={} load_iters={} load_locals={} run_trials={} rss_vms={} hot_loop_inner={} hot_loop_outer={} aot_iters={} native_jit_supported={}",
+        "config: compile_iters={} compile_stress_lines={} load_iters={} load_locals={} run_trials={} rss_vms={} hot_loop_inner={} hot_loop_outer={} native_jit_supported={}",
         config.compile_iters,
         config.compile_stress_lines,
         config.load_iters,
@@ -224,7 +213,6 @@ fn print_banner(config: &BenchConfig) {
         config.rss_vm_count,
         config.hot_loop_inner,
         config.hot_loop_outer,
-        config.aot_iters,
         native_jit_supported()
     );
     println!();
@@ -276,39 +264,6 @@ fn benchmark_compile(config: &BenchConfig) -> Result<(), String> {
     Ok(())
 }
 
-fn benchmark_aot_compile(config: &BenchConfig) -> Result<(), String> {
-    println!("[aot_compile]");
-    if !native_jit_supported() {
-        println!("  native AOT unsupported on this target");
-        println!();
-        return Ok(());
-    }
-
-    let workload = build_hot_loop_workload(2_000, 4)?;
-
-    let mut samples = Vec::with_capacity(config.aot_iters);
-    let mut prepared_trace_counts = Vec::with_capacity(config.aot_iters);
-    for _ in 0..config.aot_iters {
-        let mut vm = Vm::new(workload.program.clone());
-        vm.set_jit_config(native_jit_config());
-        let started = Instant::now();
-        let prepared = vm
-            .prepare_aot()
-            .map_err(|err| format!("failed to prepare AOT for hot loop workload: {err}"))?;
-        samples.push(started.elapsed());
-        prepared_trace_counts.push(prepared as u64);
-    }
-
-    println!(
-        "  hot_loop_medium median_us={} avg_us={} prepared_traces_median={}",
-        median_duration(&mut samples).as_micros(),
-        average_duration(&samples).as_micros(),
-        median_u64(&mut prepared_trace_counts),
-    );
-    println!();
-    Ok(())
-}
-
 fn benchmark_load(config: &BenchConfig) -> Result<(), String> {
     println!("[load]");
     for host_count in LOAD_HOST_COUNTS {
@@ -347,7 +302,6 @@ fn benchmark_runtime(config: &BenchConfig) -> Result<(), String> {
                 &aes_compiled.program,
                 &aes_expected,
                 config.run_trials,
-                false,
             )?;
         }
         Err(err) => {
@@ -363,7 +317,6 @@ fn benchmark_runtime(config: &BenchConfig) -> Result<(), String> {
         &hot_loop.program,
         &hot_expected,
         config.run_trials,
-        true,
     )?;
     println!();
     Ok(())
@@ -374,7 +327,6 @@ fn benchmark_runtime_workload(
     program: &Program,
     expected_stack: &[Value],
     trials: usize,
-    include_aot: bool,
 ) -> Result<(), String> {
     let interpreter =
         measure_runtime_mode(program, expected_stack, PerfExecMode::Interpreter, trials)?;
@@ -395,25 +347,9 @@ fn benchmark_runtime_workload(
             jit.median.as_micros(),
             average_duration(&jit.samples).as_micros(),
         );
-
-        if include_aot {
-            let aot = measure_runtime_mode(program, expected_stack, PerfExecMode::Aot, trials)?;
-            println!(
-                "  {:<16} mode={:<12} median_us={:<10} avg_us={:<10}",
-                label,
-                aot.mode.label(),
-                aot.median.as_micros(),
-                average_duration(&aot.samples).as_micros(),
-            );
-        } else {
-            println!(
-                "  {:<16} mode=aot          skipped known_aot_abort_on_current_head",
-                label
-            );
-        }
     } else {
         println!(
-            "  {:<16} mode=jit/aot      unsupported on this target",
+            "  {:<16} mode=jit          unsupported on this target",
             label
         );
     }
@@ -593,7 +529,7 @@ fn measure_runtime_mode(
 }
 
 fn configure_vm_for_mode(vm: &mut Vm, mode: PerfExecMode) {
-    let jit_enabled = mode != PerfExecMode::Interpreter;
+    let jit_enabled = mode == PerfExecMode::Jit;
     vm.set_jit_config(JitConfig {
         enabled: jit_enabled,
         hot_loop_threshold: 1,
@@ -606,10 +542,6 @@ fn warm_vm_for_mode(
     mode: PerfExecMode,
     expected_stack: &[Value],
 ) -> Result<(), String> {
-    if mode == PerfExecMode::Aot {
-        vm.prepare_aot()
-            .map_err(|err| format!("AOT prepare failed during warmup: {err}"))?;
-    }
     let status = vm
         .run()
         .map_err(|err| format!("warmup {} run failed: {err}", mode.label()))?;
@@ -973,24 +905,11 @@ fn median_duration(samples: &mut [Duration]) -> Duration {
     samples[samples.len() / 2]
 }
 
-fn median_u64(samples: &mut [u64]) -> u64 {
-    samples.sort_unstable();
-    samples[samples.len() / 2]
-}
-
 fn native_jit_supported() -> bool {
     (cfg!(target_arch = "x86_64")
         && (cfg!(target_os = "windows") || (cfg!(unix) && !cfg!(target_os = "macos"))))
         || (cfg!(target_arch = "aarch64")
             && (cfg!(target_os = "linux") || cfg!(target_os = "macos")))
-}
-
-fn native_jit_config() -> JitConfig {
-    JitConfig {
-        enabled: true,
-        hot_loop_threshold: 1,
-        max_trace_len: 16_384,
-    }
 }
 
 fn example_dir() -> PathBuf {

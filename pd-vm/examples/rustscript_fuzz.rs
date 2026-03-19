@@ -44,10 +44,6 @@ fn run_main() -> Result<(), String> {
     if config.skip_jit {
         println!("jit=disabled");
     }
-    if config.skip_aot {
-        println!("aot=disabled");
-    }
-
     let mut harness = Harness::new(config);
     harness.run()?;
     Ok(())
@@ -60,7 +56,6 @@ struct Config {
     mutation_cases: usize,
     curated_only: bool,
     skip_jit: bool,
-    skip_aot: bool,
     out_dir: PathBuf,
 }
 
@@ -72,7 +67,6 @@ impl Config {
         let mut mutation_cases = DEFAULT_MUTATION_CASES;
         let mut curated_only = false;
         let mut skip_jit = false;
-        let mut skip_aot = false;
         let mut out_dir: Option<PathBuf> = None;
 
         let mut index = 0usize;
@@ -124,10 +118,6 @@ impl Config {
                     skip_jit = true;
                     index += 1;
                 }
-                "--skip-aot" => {
-                    skip_aot = true;
-                    index += 1;
-                }
                 other => {
                     return Err(format!(
                         "unknown flag '{other}'\n\n{}",
@@ -144,7 +134,6 @@ impl Config {
             mutation_cases,
             curated_only,
             skip_jit,
-            skip_aot,
             out_dir,
         })
     }
@@ -161,7 +150,6 @@ Options:
   --out-dir <path>    Directory for summaries and failing repros
   --curated-only      Run only large curated correctness cases
   --skip-jit          Skip JIT runtime verification for valid cases
-  --skip-aot          Skip AOT roundtrip verification for curated cases
   -h, --help          Show this help
 "
     )
@@ -372,41 +360,6 @@ impl Harness {
             }
         }
 
-        if case.exercise_aot && !self.config.skip_aot {
-            let aot = catch_panic(format!("run aot {}", case.name), || {
-                run_program(&program, ExecutionMode::Aot)
-            })
-            .map_err(|detail| FailureRecord {
-                lane: case.lane,
-                name: case.name.clone(),
-                source: source.clone(),
-                detail,
-                phase: FailurePhase::AotPanic,
-            })?;
-            let aot = aot.map_err(|detail| FailureRecord {
-                lane: case.lane,
-                name: case.name.clone(),
-                source: source.clone(),
-                detail,
-                phase: FailurePhase::RuntimeError,
-            })?;
-            assert_expected_stack(case, "aot", &source, &aot)?;
-            if aot != interpreted {
-                return Err(FailureRecord {
-                    lane: case.lane,
-                    name: case.name.clone(),
-                    source,
-                    detail: format!(
-                        "aot stack diverged from interpreter\nexpected: {}\ninterpreted: {}\naot: {}",
-                        ValueStack(&case.expected_stack),
-                        ValueStack(&interpreted),
-                        ValueStack(&aot)
-                    ),
-                    phase: FailurePhase::StackMismatch,
-                });
-            }
-        }
-
         Ok(())
     }
 
@@ -529,7 +482,6 @@ enum FailurePhase {
     RuntimeError,
     InterpreterPanic,
     JitPanic,
-    AotPanic,
     StackMismatch,
 }
 
@@ -537,7 +489,7 @@ impl FailurePhase {
     fn is_panic(self) -> bool {
         matches!(
             self,
-            Self::CompilePanic | Self::InterpreterPanic | Self::JitPanic | Self::AotPanic
+            Self::CompilePanic | Self::InterpreterPanic | Self::JitPanic
         )
     }
 }
@@ -551,7 +503,6 @@ impl fmt::Display for FailurePhase {
             FailurePhase::RuntimeError => "runtime_error",
             FailurePhase::InterpreterPanic => "interpreter_panic",
             FailurePhase::JitPanic => "jit_panic",
-            FailurePhase::AotPanic => "aot_panic",
             FailurePhase::StackMismatch => "stack_mismatch",
         };
         write!(f, "{text}")
@@ -568,7 +519,6 @@ struct ValidCase {
     name: String,
     input: ProgramInput,
     expected_stack: Vec<Value>,
-    exercise_aot: bool,
 }
 
 impl ValidCase {
@@ -595,7 +545,6 @@ impl ValidCase {
 enum ExecutionMode {
     Interpreter,
     Jit,
-    Aot,
 }
 
 fn run_program(program: &vm::Program, mode: ExecutionMode) -> Result<Vec<Value>, String> {
@@ -619,22 +568,6 @@ fn run_program(program: &vm::Program, mode: ExecutionMode) -> Result<Vec<Value>,
                 max_trace_len: 512,
             });
             run_vm_to_completion(&mut vm)
-        }
-        ExecutionMode::Aot => {
-            let mut emitter = Vm::new(program.clone());
-            configure_vm(&mut emitter);
-            emitter.set_jit_config(JitConfig {
-                enabled: true,
-                hot_loop_threshold: 1,
-                max_trace_len: 512,
-            });
-            let bundle = emitter
-                .emit_aot_bundle()
-                .map_err(|err| format!("failed to emit AOT bundle: {err}"))?;
-            let mut loaded = Vm::from_aot_bundle_bytes(&bundle)
-                .map_err(|err| format!("failed to load AOT bundle: {err}"))?;
-            configure_vm(&mut loaded);
-            run_vm_to_completion(&mut loaded)
         }
     }
 }
@@ -709,7 +642,6 @@ fn curated_cases() -> Vec<ValidCase> {
             name: "aes_128_cbc_usage".to_string(),
             input: ProgramInput::File(example_root.join("aes_128_cbc_usage.rss")),
             expected_stack: vec![Value::string("7649abac8119b246cee98e9b12e9197d")],
-            exercise_aot: true,
         },
         ValidCase {
             lane: "curated",
@@ -721,14 +653,12 @@ fn curated_cases() -> Vec<ValidCase> {
                 Value::Float(3.0),
                 Value::Float(4.0),
             ],
-            exercise_aot: true,
         },
         ValidCase {
             lane: "curated",
             name: hybrid.name,
             input: ProgramInput::Inline(hybrid.source),
             expected_stack: vec![Value::Int(hybrid.expected)],
-            exercise_aot: true,
         },
     ]
 }
@@ -845,7 +775,6 @@ acc;
 "#
         )),
         expected_stack: vec![Value::Int(acc)],
-        exercise_aot: false,
     }
 }
 
@@ -905,7 +834,6 @@ total;
 "#
         )),
         expected_stack: vec![Value::Int(total)],
-        exercise_aot: false,
     }
 }
 
@@ -942,7 +870,6 @@ acc;
 "#
         )),
         expected_stack: vec![Value::Int(acc)],
-        exercise_aot: false,
     }
 }
 
@@ -977,7 +904,6 @@ acc;
 "#
         )),
         expected_stack: vec![Value::Int(acc)],
-        exercise_aot: false,
     }
 }
 
@@ -1015,7 +941,6 @@ sum + values[{pick}];
 "#
         )),
         expected_stack: vec![Value::Int(expected)],
-        exercise_aot: false,
     }
 }
 
@@ -1043,7 +968,6 @@ a + b + {extra};
 "#
         )),
         expected_stack: vec![Value::Int(expected)],
-        exercise_aot: false,
     }
 }
 

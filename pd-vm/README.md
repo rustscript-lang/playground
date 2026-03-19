@@ -14,7 +14,6 @@ source syntaxes (`.rss`, `.js`, `.lua`, `.scm`).
   - [Recording and Replay](#recording-and-replay)
   - [Bytecode and VMBC](#bytecode-and-vmbc)
   - [JIT](#jit)
-  - [AOT](#aot)
   - [Fuel Metering](#fuel-metering)
   - [Epoch Interruption](#epoch-interruption)
   - [Wasm Lint](#wasm-lint)
@@ -147,59 +146,10 @@ Native JIT codegen uses Cranelift.
 Library hooks:
 
 - `vm.set_jit_config(...)`
-- `vm.prepare_aot()`
-- `vm.emit_aot_bundle()`
-- `Vm::from_aot_bundle_bytes(...)`
 - `vm.jit_snapshot()`
 - `vm.dump_jit_info()`
 - `vm.jit_native_trace_count()`
 - `vm.jit_native_exec_count()`
-
-### AOT
-
-Ahead-of-time bundles compile whole-program bytecode blocks up front (entry + branch targets),
-then execute through the same native backend used by JIT.
-
-Emit an AOT bundle:
-
-```powershell
-cargo run -p pd-vm --bin pd-vm-run -- --emit-aot out/example.pat examples/example.rss
-```
-
-Set a custom AOT fuel checkpoint interval while emitting:
-
-```powershell
-cargo run -p pd-vm --bin pd-vm-run -- --emit-aot out/example.pat --fuel-check-interval 64 examples/example.rss
-```
-
-Set a custom AOT epoch checkpoint interval while emitting an epoch-specialized bundle:
-
-```powershell
-cargo run -p pd-vm --bin pd-vm-run -- --emit-aot out/example.pat --epoch-check-interval 64 examples/example.rss
-```
-
-Run an emitted AOT bundle:
-
-```powershell
-cargo run -p pd-vm --bin pd-vm-run -- --run-aot out/example.pat --jit-dump
-```
-
-- AOT uses the same native backend as JIT (Cranelift).
-- Opcode/native support coverage is shared with the JIT backend.
-- `.pat` stores native trace machine code, constants/import metadata, local count, and trace
-  metadata. Emitted bundles do not persist VM bytecode.
-- `--emit-aot` defaults to `--fuel-check-interval 64`.
-- `--fuel-check-interval 0` emits native code without inline fuel-check sequences. Such bundles
-  cannot be run with `--fuel` because no native checkpoints exist.
-- `--fuel-check-interval <n>` emits fuel-specialized native checkpoints; `--epoch-check-interval <n>`
-  emits epoch-specialized checkpoints. Native-only AOT bundles reject the wrong interruption mode at runtime.
-- Bundles are validated against target arch/os/pointer width plus a VM-layout fingerprint before
-  loading, so they are only portable across compatible builds on the same native support matrix.
-- Control-flow targets remain instruction offsets inside a synthetic code space (`ip` labels are
-  preserved even though raw bytecode is not), so trace chaining and host-call resume addresses stay
-  stable at runtime.
-- Native-only AOT bundles support pending host calls, but synchronous host `CallOutcome::Yield`
-  requires bytecode replay and is therefore rejected at runtime.
 
 ### Fuel Metering
 
@@ -303,9 +253,7 @@ Semantics:
   to distinguish fuel vs epoch vs host yields.
 - After an epoch yield, the next `run()` / `resume()` automatically re-arms the same deadline delta.
   Use `epoch deadline <n>` to change the slice size or `epoch clear` to disable interruption.
-- The interpreter, trace interpreter, native JIT, and native AOT all use the same inline
-  checkpoint cadence (`epoch_check_interval`), but native fuel and epoch traces are emitted as
-  separate specialized machine-code variants.
+- The interpreter and native JIT use the same inline checkpoint cadence (`epoch_check_interval`).
 
 Debugger epoch commands:
 
@@ -455,9 +403,6 @@ The `call` opcode pops its arguments, dispatches to a builtin or bound host func
   scratch, re-popping args and re-invoking the host function.
 - The host function must be idempotent with respect to yield (it will be called again).
 - Returns `VmStatus::Yielded` with `last_yield_reason() == Some(VmYieldReason::Host)`.
-- **Not supported in native-only AOT bundles** — such bundles require bytecode replay to rewind
-  IP, which is unavailable without persisted bytecode. Returning `Yield` from a host function
-  while running a native-only AOT bundle is a hard runtime error.
 
 **`CallOutcome::Pending(op_id)`** — async host operation:
 
@@ -466,7 +411,6 @@ The `call` opcode pops its arguments, dispatches to a builtin or bound host func
 - Subsequent calls to `run()` immediately return `VmStatus::Waiting(op_id)` until the caller
   resolves the op via `vm.complete_host_op(op_id, values)` (which pushes return values) or via
   `vm.poll_waiting_host_op()` / `vm.await_waiting_host_op()`.
-- Supported in native-only AOT bundles.
 
 **Cooperative interruption yields (fuel / epoch)**:
 

@@ -737,12 +737,6 @@ impl Vm {
                 for value in args {
                     self.stack.push(value);
                 }
-                if self.native_only_aot {
-                    return Err(VmError::JitNative(
-                        "native-only AOT bundles do not support host CallOutcome::Yield"
-                            .to_string(),
-                    ));
-                }
                 self.ip = call_ip;
                 Ok(HostCallExecOutcome::Yielded)
             }
@@ -815,12 +809,6 @@ impl Vm {
                 Ok(HostCallExecOutcome::Halted)
             }
             CallOutcome::Yield => {
-                if self.native_only_aot {
-                    return Err(VmError::JitNative(
-                        "native-only AOT bundles do not support host CallOutcome::Yield"
-                            .to_string(),
-                    ));
-                }
                 self.ip = call_ip;
                 Ok(HostCallExecOutcome::Yielded)
             }

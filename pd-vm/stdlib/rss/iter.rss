@@ -23,7 +23,7 @@ pub fn range(stop: int) {
 }
 
 // Returns [index, value] pairs for an array.
-pub fn enumerate(values: [any]) {
+pub fn enumerate(values) {
     let mut out = [];
     for (let mut index = 0; index < values.length; index = index + 1) {
         out[out.length] = [index, values[index]];
@@ -32,7 +32,7 @@ pub fn enumerate(values: [any]) {
 }
 
 // Zips two arrays into [lhs, rhs] pairs up to the shorter length.
-pub fn zip(lhs: [any], rhs: [any]) {
+pub fn zip(lhs, rhs) {
     let mut out = [];
     let mut limit = lhs.length;
     if rhs.length < limit {
@@ -45,7 +45,7 @@ pub fn zip(lhs: [any], rhs: [any]) {
 }
 
 // Returns the first count values from an array.
-pub fn take(values: [any], count: int) {
+pub fn take(values, count: int) {
     let out = if count > 0 => {
         values[0:count]
     } else => {
@@ -55,7 +55,7 @@ pub fn take(values: [any], count: int) {
 }
 
 // Returns an array without the first count values.
-pub fn skip(values: [any], count: int) {
+pub fn skip(values, count: int) {
     let start = if count > 0 => {
         count
     } else => {
@@ -70,7 +70,7 @@ pub fn skip(values: [any], count: int) {
 }
 
 // Splits an array into fixed-size chunks.
-pub fn chunk(values: [any], size: int) {
+pub fn chunk(values, size: int) {
     let mut out = [];
     if size > 0 {
         let value_len = values.length;
@@ -86,7 +86,7 @@ pub fn chunk(values: [any], size: int) {
 }
 
 // Returns the sum of numeric values.
-pub fn sum(values: [any]) {
+pub fn sum(values) {
     let mut out = 0;
     for (let mut index = 0; index < values.length; index = index + 1) {
         out = out + values[index];
@@ -119,7 +119,7 @@ pub fn all_true(values: [bool]) {
 }
 
 // Applies a function to each value in an array.
-pub fn map(values: [any], func: any) {
+pub fn map(values, func) {
     let mut out = [];
     for (let mut index = 0; index < values.length; index = index + 1) {
         out[out.length] = func(values[index]);
@@ -128,7 +128,7 @@ pub fn map(values: [any], func: any) {
 }
 
 // Returns the values for which pred(value) is true.
-pub fn filter(values: [any], pred: any) {
+pub fn filter(values, pred) {
     let mut out = [];
     for (let mut index = 0; index < values.length; index = index + 1) {
         let value = values[index];
@@ -140,7 +140,7 @@ pub fn filter(values: [any], pred: any) {
 }
 
 // Reduces an array by applying func(acc, value) from left to right.
-pub fn reduce(values: [any], init: any, func: any) {
+pub fn reduce(values, init, func) {
     let mut acc = init;
     for (let mut index = 0; index < values.length; index = index + 1) {
         acc = func(acc, values[index]);
@@ -149,7 +149,7 @@ pub fn reduce(values: [any], init: any, func: any) {
 }
 
 // Calls a function for each value in an array and returns null.
-pub fn each(values: [any], func: any) {
+pub fn each(values, func) {
     for (let mut index = 0; index < values.length; index = index + 1) {
         let each_result = func(values[index]);
     }

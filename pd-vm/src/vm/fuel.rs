@@ -87,22 +87,13 @@ impl Vm {
         if self.epoch_interruption_enabled() {
             return Err(self.interruption_mode_conflict(InterruptMode::Fuel));
         }
-        self.validate_native_aot_interrupt_interval(interval)?;
         self.fuel_check_interval = interval;
         self.reset_interrupt_countdown();
         Ok(())
     }
 
     pub fn fuel_check_interval(&self) -> u32 {
-        if self.native_aot_interrupt_check_interval == Some(0) {
-            0
-        } else {
-            self.fuel_check_interval
-        }
-    }
-
-    pub fn aot_fuel_check_interval(&self) -> Option<u32> {
-        self.native_aot_interrupt_check_interval
+        self.fuel_check_interval
     }
 
     pub fn get_fuel(&self) -> Option<u64> {
@@ -167,14 +158,7 @@ impl Vm {
             InterruptMode::None
         };
         self.fuel_remaining = checkpoint.remaining.unwrap_or(0);
-        if self.native_aot_interrupt_check_interval == Some(0) {
-            self.fuel_check_interval = 1;
-            self.fuel_ops_until_check = 1;
-            return;
-        }
-        self.fuel_check_interval = self
-            .native_aot_interrupt_check_interval
-            .unwrap_or(checkpoint.check_interval.max(1));
+        self.fuel_check_interval = checkpoint.check_interval.max(1);
         self.fuel_ops_until_check = checkpoint
             .ops_until_check
             .clamp(1, self.fuel_check_interval);

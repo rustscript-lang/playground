@@ -16,7 +16,6 @@ pub(super) const STATUS_ERROR: i32 = -1;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum NativeCompileProfile {
     Jit,
-    Aot,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -60,11 +59,6 @@ pub(super) fn selected_codegen_backend() -> &'static str {
 #[cfg(feature = "cranelift-jit")]
 pub(crate) use cranelift::{CompiledTrace, TraceKeepAlive};
 
-#[cfg(feature = "cranelift-jit")]
-pub(crate) fn load_compiled_trace(code: &[u8]) -> VmResult<Box<CompiledTrace>> {
-    Ok(Box::new(cranelift::load_compiled_trace(code)?))
-}
-
 #[cfg(not(feature = "cranelift-jit"))]
 pub(crate) struct TraceKeepAlive;
 
@@ -102,13 +96,6 @@ pub(super) fn compile_native_trace(
     ))
 }
 
-#[cfg(not(feature = "cranelift-jit"))]
-pub(crate) fn load_compiled_trace(_code: &[u8]) -> VmResult<Box<CompiledTrace>> {
-    Err(VmError::JitNative(
-        "native JIT backend is disabled (feature 'cranelift-jit' is not enabled)".to_string(),
-    ))
-}
-
 #[cfg(feature = "cranelift-jit")]
 pub(crate) fn helper_entry_address() -> usize {
     cranelift::helper_entry_address()
@@ -117,18 +104,6 @@ pub(crate) fn helper_entry_address() -> usize {
 #[cfg(not(feature = "cranelift-jit"))]
 pub(crate) fn helper_entry_address() -> usize {
     0
-}
-
-#[cfg(feature = "cranelift-jit")]
-pub(crate) fn layout_fingerprint() -> VmResult<u64> {
-    cranelift::layout_fingerprint()
-}
-
-#[cfg(not(feature = "cranelift-jit"))]
-pub(crate) fn layout_fingerprint() -> VmResult<u64> {
-    Err(VmError::JitNative(
-        "native JIT backend is disabled (feature 'cranelift-jit' is not enabled)".to_string(),
-    ))
 }
 
 static GENERIC_BRIDGE_ERROR: OnceLock<Mutex<Option<VmError>>> = OnceLock::new();

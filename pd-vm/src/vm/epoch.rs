@@ -166,7 +166,6 @@ impl Vm {
         if self.fuel_metering_enabled() {
             return Err(self.interruption_mode_conflict(InterruptMode::Epoch));
         }
-        self.validate_native_aot_interrupt_interval(interval)?;
         self.fuel_check_interval = interval;
         self.reset_interrupt_countdown();
         Ok(())
@@ -174,10 +173,6 @@ impl Vm {
 
     pub fn epoch_check_interval(&self) -> u32 {
         self.fuel_check_interval()
-    }
-
-    pub fn aot_epoch_check_interval(&self) -> Option<u32> {
-        self.native_aot_interrupt_check_interval
     }
 
     pub fn epoch_checkpoint(&self) -> EpochCheckpoint {
@@ -202,14 +197,7 @@ impl Vm {
         self.epoch_deadline = checkpoint.deadline.unwrap_or(0);
         self.epoch_deadline_delta = checkpoint.deadline_delta;
         self.epoch_rearm_pending = checkpoint.rearm_pending;
-        if self.native_aot_interrupt_check_interval == Some(0) {
-            self.fuel_check_interval = 1;
-            self.fuel_ops_until_check = 1;
-            return;
-        }
-        self.fuel_check_interval = self
-            .native_aot_interrupt_check_interval
-            .unwrap_or(checkpoint.check_interval.max(1));
+        self.fuel_check_interval = checkpoint.check_interval.max(1);
         self.fuel_ops_until_check = checkpoint
             .ops_until_check
             .clamp(1, self.fuel_check_interval);

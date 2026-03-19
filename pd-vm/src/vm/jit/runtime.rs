@@ -158,13 +158,6 @@ fn compile_profile_satisfies(
     requested: native::NativeCompileProfile,
 ) -> bool {
     compiled == requested
-        || matches!(
-            (compiled, requested),
-            (
-                native::NativeCompileProfile::Aot,
-                native::NativeCompileProfile::Jit
-            )
-        )
 }
 
 impl Vm {
@@ -255,31 +248,6 @@ impl Vm {
             }
         }
         out
-    }
-
-    pub fn prepare_aot(&mut self) -> VmResult<usize> {
-        if !self.jit_config().enabled {
-            return Ok(0);
-        }
-        self.ensure_program_cache_key();
-        self.native_traces.clear();
-        let trace_ids = {
-            let program = &self.program;
-            self.jit.prepare_aot(program)
-        };
-        #[cfg(any(
-            all(
-                target_arch = "x86_64",
-                any(target_os = "windows", all(unix, not(target_os = "macos")))
-            ),
-            all(target_arch = "aarch64", any(target_os = "linux", target_os = "macos"))
-        ))]
-        {
-            for trace_id in trace_ids.iter().copied() {
-                self.ensure_native_trace(trace_id, native::NativeCompileProfile::Aot)?;
-            }
-        }
-        Ok(trace_ids.len())
     }
 
     fn execute_jit_trace(&mut self, trace_id: usize) -> VmResult<ExecOutcome> {
@@ -964,14 +932,6 @@ impl Vm {
             compile_profile,
             drop_contract_events_enabled,
         );
-        let fallback_key = (compile_profile == native::NativeCompileProfile::Jit).then_some(
-            native_trace_cache_key(
-                &trace,
-                interrupt_settings,
-                native::NativeCompileProfile::Aot,
-                drop_contract_events_enabled,
-            ),
-        );
         let cached = with_native_trace_cache(|cache| {
             if cache.active_program_key != Some(program_cache_key) {
                 cache.entries.clear();
@@ -980,7 +940,7 @@ impl Vm {
             if let Some(cached) = cache.entries.get(&key).cloned() {
                 return Some(cached);
             }
-            fallback_key.and_then(|fallback| cache.entries.get(&fallback).cloned())
+            None
         });
         if let Some(cached) = cached {
             self.native_traces.insert(
@@ -1037,35 +997,6 @@ impl Vm {
             },
         );
         Ok(())
-    }
-
-    #[cfg(any(
-        all(
-            target_arch = "x86_64",
-            any(target_os = "windows", all(unix, not(target_os = "macos")))
-        ),
-        all(target_arch = "aarch64", any(target_os = "linux", target_os = "macos"))
-    ))]
-    pub(super) fn build_loaded_native_aot_trace(
-        trace: &JitTrace,
-        compiled: native::CompiledTrace,
-        interrupt_settings: Option<native::NativeInterruptSettings>,
-        drop_contract_events_enabled: bool,
-    ) -> NativeTrace {
-        let entry = unsafe { std::mem::transmute::<*const u8, NativeTraceEntry>(compiled.entry) };
-        let code = Arc::<[u8]>::from(compiled.code.into_boxed_slice());
-        let keepalive = Arc::new(Mutex::new(compiled.keepalive));
-        NativeTrace {
-            _keepalive: keepalive,
-            entry,
-            code,
-            root_ip: trace.root_ip,
-            terminal: trace.terminal.clone(),
-            has_yielding_call: trace.has_yielding_call,
-            interrupt_settings,
-            compile_profile: native::NativeCompileProfile::Aot,
-            drop_contract_events_enabled,
-        }
     }
 
     pub fn jit_native_trace_count(&self) -> usize {

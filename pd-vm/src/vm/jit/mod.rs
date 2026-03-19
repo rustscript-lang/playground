@@ -1,4 +1,3 @@
-pub(crate) mod aot;
 pub(crate) mod native;
 pub(crate) mod runtime;
 pub(crate) mod trace;
