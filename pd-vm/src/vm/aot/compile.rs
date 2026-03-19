@@ -1,30 +1,46 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fmt;
 use std::sync::Arc;
+
+#[cfg(feature = "cranelift-jit")]
+use std::collections::HashMap;
+#[cfg(feature = "cranelift-jit")]
 use std::sync::OnceLock;
+#[cfg(feature = "cranelift-jit")]
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::vm::native::{
-    ExecutableBuffer, InlineEmitCtx, NativeInlineStep, OP_ADD, OP_AND, OP_BUILTIN_CALL, OP_CALL,
-    OP_CEQ, OP_CGT, OP_CLT, OP_DIV, OP_DUP, OP_GUARD_FALSE, OP_JUMP, OP_LDC, OP_LDLOC, OP_LSHR,
-    OP_MOD, OP_MUL, OP_NEG, OP_NOT, OP_OR, OP_POP, OP_SHL, OP_SHR, OP_STLOC, OP_SUB,
-    STATUS_CONTINUE, STATUS_ERROR, STATUS_TRACE_EXIT, detect_native_stack_layout,
-    emit_native_inline_step, entry_signature, helper_entry_offset, helper_signature,
-    interrupt_helper_entry_offset, jump_with_status, resolve_offsets,
-};
+use crate::vm::native::ExecutableBuffer;
 use crate::vm::{OpCode, Program, Vm, VmError, VmResult};
+#[cfg(feature = "cranelift-jit")]
+use crate::vm::native::{
+    InlineEmitCtx, NativeInlineStep, OP_GUARD_FALSE, STATUS_CONTINUE, STATUS_ERROR,
+    STATUS_TRACE_EXIT, detect_native_stack_layout, emit_native_inline_step, entry_signature,
+    helper_entry_offset, helper_signature, interrupt_helper_entry_offset, jump_with_status,
+    resolve_offsets, OP_ADD, OP_AND, OP_BUILTIN_CALL, OP_CALL, OP_CEQ, OP_CGT, OP_CLT, OP_DIV,
+    OP_DUP, OP_JUMP, OP_LDC, OP_LDLOC, OP_LSHR, OP_MOD, OP_MUL, OP_NEG, OP_NOT, OP_OR, OP_POP,
+    OP_SHL, OP_SHR, OP_STLOC, OP_SUB,
+};
+#[cfg(feature = "cranelift-jit")]
 use cranelift_codegen::ir::condcodes::IntCC;
+#[cfg(feature = "cranelift-jit")]
 use cranelift_codegen::ir::{Block, BlockArg, InstBuilder, MemFlags, types};
+#[cfg(feature = "cranelift-jit")]
 use cranelift_codegen::isa::OwnedTargetIsa;
+#[cfg(feature = "cranelift-jit")]
 use cranelift_codegen::settings::{self, Configurable};
+#[cfg(feature = "cranelift-jit")]
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Switch};
+#[cfg(feature = "cranelift-jit")]
 use cranelift_jit::{JITBuilder, JITModule};
+#[cfg(feature = "cranelift-jit")]
 use cranelift_module::{Linkage, Module};
 
 use super::cfg::AotBlockTerminal;
-use super::ir::{
-    AotCallDispatch, AotInstruction, AotIrBlock, AotLowerError, AotProgram, lower_program,
-};
+use super::ir::{AotInstruction, AotIrBlock, AotLowerError, AotProgram};
+#[cfg(feature = "cranelift-jit")]
+use super::ir::AotCallDispatch;
+#[cfg(any(feature = "cranelift-jit", test))]
+use super::ir::lower_program;
 
 #[cfg(any(
     all(
@@ -171,7 +187,9 @@ impl From<AotLowerError> for AotCompileError {
     }
 }
 
+#[cfg(feature = "cranelift-jit")]
 static CRANELIFT_AOT_ID: AtomicU64 = AtomicU64::new(1);
+#[cfg(feature = "cranelift-jit")]
 static CRANELIFT_AOT_ISA: OnceLock<Result<OwnedTargetIsa, String>> = OnceLock::new();
 
 pub(crate) fn compile_program(program: &Program) -> VmResult<CompiledProgram> {
@@ -888,6 +906,7 @@ fn terminal_ip(block: &AotIrBlock) -> Option<usize> {
     }
 }
 
+#[cfg(feature = "cranelift-jit")]
 fn inline_step_for_instruction(instruction: &AotInstruction) -> Option<NativeInlineStep> {
     Some(match instruction {
         AotInstruction::Nop | AotInstruction::Call(_) => return None,
@@ -930,6 +949,7 @@ fn inline_step_for_instruction(instruction: &AotInstruction) -> Option<NativeInl
     })
 }
 
+#[cfg(feature = "cranelift-jit")]
 fn step_to_call_tuple(
     instruction: &AotInstruction,
 ) -> Result<(i64, i64, i64, i64), AotCompileError> {
