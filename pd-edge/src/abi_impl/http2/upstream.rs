@@ -3,7 +3,7 @@
 #[cfg(feature = "http2")]
 use std::collections::HashMap;
 #[cfg(not(feature = "http2"))]
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 #[cfg(feature = "http2")]
 use std::sync::{
     Arc, Mutex, RwLock,

@@ -2354,7 +2354,7 @@ pub(super) async fn start_outbound_exchange_response(
     }
 
     let prepared = prepared_outbound_exchange_request(context, handle)?;
-    let (upstream_url, host_header) = build_configured_upstream_url(
+    let (_upstream_url, host_header) = build_configured_upstream_url(
         &prepared.target,
         prepared.target_inherits_request_path,
         prepared.target_host_header.as_deref(),
@@ -2468,7 +2468,7 @@ pub(super) async fn start_outbound_exchange_response(
             match start_upstream_response_via_http3(
                 handle,
                 &prepared,
-                &upstream_url,
+                &_upstream_url,
                 outbound_headers.clone(),
                 if let Some(template) = default_request_body_template.clone() {
                     into_http3_request_body_from_default_upstream_template(context, template)

@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 use edge_abi::FUNCTIONS as EDGE_ABI_FUNCTIONS;
-use vm::{
-    HostFunctionRegistry, StaticHostArgsFunction, StaticHostStackFunction, Vm, VmError,
-};
+use vm::{HostFunctionRegistry, StaticHostArgsFunction, StaticHostStackFunction, Vm, VmError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum EdgeHostScope {

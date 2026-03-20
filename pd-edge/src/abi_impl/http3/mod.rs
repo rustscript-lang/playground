@@ -2,9 +2,11 @@ mod downstream;
 mod model;
 mod upstream;
 
+#[cfg(feature = "http3")]
+pub(crate) use self::downstream::DownstreamHttp3ConnectionTracker;
 pub(crate) use self::downstream::{
-    DownstreamHttp3ConnectionTracker, Http3DownstreamStreamAttachment,
-    SharedHttp3DownstreamSessions, new_shared_http3_downstream_sessions,
+    Http3DownstreamStreamAttachment, SharedHttp3DownstreamSessions,
+    new_shared_http3_downstream_sessions,
 };
 pub(crate) use self::model::{
     Http3StreamRef, Http3UpstreamMode, select_upstream_mode, supports_response_version,

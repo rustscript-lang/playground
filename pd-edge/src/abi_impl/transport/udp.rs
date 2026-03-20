@@ -302,7 +302,9 @@ async fn socket_is_present(
         UdpSocketHandle::Downstream => false,
         _ => socket_state(&context, handle).is_present(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(present))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        present,
+    ))))
 }
 
 /// Binds the UDP socket to a local address.
@@ -372,7 +374,9 @@ async fn socket_get_phase(
         UdpSocketHandle::Downstream => "inactive".to_string(),
         handle => socket_state(&context, handle).phase().as_str().to_string(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(phase))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        phase,
+    ))))
 }
 
 /// Returns the local address for the UDP socket.
@@ -386,7 +390,9 @@ async fn socket_get_local_addr(
         UdpSocketHandle::Downstream => String::new(),
         handle => socket_state(&context, handle).local_address().to_string(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(address))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        address,
+    ))))
 }
 
 /// Returns the peer address for the UDP socket.
@@ -400,7 +406,9 @@ async fn socket_get_peer_addr(
         UdpSocketHandle::Downstream => String::new(),
         handle => socket_state(&context, handle).peer_address().to_string(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(address))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        address,
+    ))))
 }
 
 /// Sends a text message over the UDP socket.
@@ -425,7 +433,9 @@ async fn socket_send_text(
         .send(text.as_bytes())
         .await
         .map_err(|err| VmError::HostError(format!("failed to send udp datagram: {err}")))?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Receives a text datagram from the UDP socket.
@@ -469,7 +479,9 @@ async fn socket_send_binary_base64(
             .await
             .map_err(|err| VmError::HostError(format!("failed to send udp datagram: {err}")))?
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Sends a binary message over the UDP socket.
@@ -488,7 +500,9 @@ async fn socket_send_binary(
             .await
             .map_err(|err| VmError::HostError(format!("failed to send udp datagram: {err}")))?
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Receives a base64-encoded binary datagram from the UDP socket.
@@ -532,7 +546,9 @@ async fn socket_recv_binary(
             .map_err(|err| VmError::HostError(format!("failed to receive udp datagram: {err}")))?
     };
     buffer.truncate(received);
-    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(buffer))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(
+        buffer,
+    ))))
 }
 
 /// Closes the UDP socket.

@@ -262,7 +262,9 @@ fn namespaced_builtin_json_encode_call_can_be_overridden_by_host_binding() {
     impl HostFunction for JsonEncodeOverride {
         fn call(&mut self, _vm: &mut Vm, args: &[Value]) -> Result<CallOutcome, vm::VmError> {
             assert_eq!(args, &[Value::string("request_body")]);
-            Ok(CallOutcome::Return(vec![Value::string("\"override\"")].into()))
+            Ok(CallOutcome::Return(
+                vec![Value::string("\"override\"")].into(),
+            ))
         }
     }
 

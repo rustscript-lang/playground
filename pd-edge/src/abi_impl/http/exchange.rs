@@ -391,7 +391,9 @@ fn get_exchange_version(
     let version = with_exchange_request(&context, exchange, |request| {
         request.version_preference.as_str().to_string()
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(version))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        version,
+    ))))
 }
 
 /// Sets the target endpoint for the outbound HTTP exchange.
@@ -494,7 +496,7 @@ fn set_exchange_query_arg(
         let mut pairs = url::form_urlencoded::parse(request.query.as_bytes())
             .map(|(name, value)| (name.into_owned(), value.into_owned()))
             .collect::<Vec<_>>();
-        pairs.retain(|(name, _)| name != &key);
+        pairs.retain(|(name, _)| name != key);
         pairs.push((key.to_string(), value.to_string()));
         request.query = serialize_query_pairs(pairs);
     })?;
@@ -574,7 +576,9 @@ async fn get_exchange_trailer(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("")
         .to_string();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns all trailers on the outbound HTTP exchange as a map.
@@ -585,7 +589,9 @@ async fn get_exchange_trailers(
     exchange: i64,
 ) -> Result<CallOutcome, VmError> {
     let trailers = read_outbound_exchange_response_trailers(&context, exchange).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(headers_to_value_map(&trailers))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(
+        headers_to_value_map(&trailers),
+    )))
 }
 
 /// Returns the HTTP version for the outbound HTTP exchange.

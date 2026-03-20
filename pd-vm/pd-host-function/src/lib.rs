@@ -327,15 +327,11 @@ fn type_label(ty: &Type) -> Result<String, Error> {
                 "f32" | "f64" => Ok("float".to_string()),
                 "bool" => Ok("bool".to_string()),
                 "String" | "str" | "VmStringRef" => Ok("string".to_string()),
-                "Bytes" | "VmBytes" | "VmBytesRef" | "VmBytesHandle" => {
-                    Ok("bytes".to_string())
-                }
+                "Bytes" | "VmBytes" | "VmBytesRef" | "VmBytesHandle" => Ok("bytes".to_string()),
                 "Any" | "AnyValue" | "Value" | "VmValueRef" | "VmValueOwned" => {
                     Ok("any".to_string())
                 }
-                "Array" | "VmArray" | "VmArrayRef" | "VmArrayHandle" => {
-                    Ok("array".to_string())
-                }
+                "Array" | "VmArray" | "VmArrayRef" | "VmArrayHandle" => Ok("array".to_string()),
                 "Map" | "VmMap" | "VmMapRef" | "VmMapHandle" => Ok("map".to_string()),
                 "Number" | "NumberValue" => Ok("number".to_string()),
                 "Unknown" | "UnknownValue" => Ok("unknown".to_string()),

@@ -41,5 +41,7 @@ async fn rate_limit_allow(
 
     let rate_limiter = context.services().rate_limiter();
     let allowed = rate_limiter.allow(&key, limit as u64, window_seconds as u64);
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(allowed))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        allowed,
+    ))))
 }

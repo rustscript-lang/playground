@@ -43,7 +43,9 @@ fn request_field_outcome(
         RequestField::Host => request_head.host().to_string(),
         RequestField::ClientIp => request_head.client_ip().to_string(),
     });
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns the full body for the downstream HTTP request as text.
@@ -160,15 +162,17 @@ fn get_request_header(context: SharedProxyVmContext, name: &str) -> Result<CallO
     let value = context
         .with_request_head(|request_head| request_head.lazy_headers().get_str(name))
         .unwrap_or_default();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns all headers on the downstream HTTP request as a map.
 #[pd_edge_host_function(name = http_request::GET_HEADERS.name, scope = http)]
 fn get_request_headers(context: SharedProxyVmContext) -> Result<CallOutcome, VmError> {
-    Ok(CallOutcome::Return(vm::CallReturn::one(context.with_request_head(
-        |request_head| headers_to_value_map(request_head.headers()),
-    ))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(
+        context.with_request_head(|request_head| headers_to_value_map(request_head.headers())),
+    )))
 }
 
 /// Returns a query parameter from the downstream HTTP request.
@@ -188,15 +192,17 @@ fn get_request_query_arg(
             })
             .unwrap_or_default()
     });
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns all query parameters from the downstream HTTP request as a map.
 #[pd_edge_host_function(name = http_request::GET_QUERY_ARGS.name, scope = http)]
 fn get_request_query_args(context: SharedProxyVmContext) -> Result<CallOutcome, VmError> {
-    Ok(CallOutcome::Return(vm::CallReturn::one(context.with_request_head(
-        |request_head| query_to_value_map(request_head.query()),
-    ))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(
+        context.with_request_head(|request_head| query_to_value_map(request_head.query())),
+    )))
 }
 
 /// Returns the local destination port for the downstream HTTP request.

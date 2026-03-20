@@ -14,11 +14,13 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{info, warn};
 
 use super::super::SharedState;
+#[cfg(feature = "http2")]
+use super::proxy_path::serve_http_connection;
 use super::proxy_path::{
     execute_data_plane_http_request_context, finalize_data_plane_response,
     program_may_stream_downstream_http_response, record_data_plane_response_metrics,
-    record_stage_metrics, record_stage_metrics_if_enabled, serve_http_connection,
-    serve_http1_connection_via_hyper, stage_metrics_active,
+    record_stage_metrics, record_stage_metrics_if_enabled, serve_http1_connection_via_hyper,
+    stage_metrics_active,
 };
 use crate::{
     abi_impl::ReplayPrefixedIo,

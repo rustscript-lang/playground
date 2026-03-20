@@ -168,6 +168,7 @@ async fn dispatch_hyper_downstream_request(
     Ok(response)
 }
 
+#[cfg(feature = "http2")]
 pub(super) async fn serve_http_connection<S>(
     state: SharedState,
     stream: S,

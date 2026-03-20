@@ -53,6 +53,7 @@ where
         self.values.get(key)
     }
 
+    #[cfg(any(feature = "http2", feature = "http3"))]
     pub(crate) fn get_mut(&mut self, key: &K) -> Option<&mut V> {
         if !self.values.contains_key(key) {
             return None;
@@ -73,11 +74,13 @@ where
         previous
     }
 
+    #[cfg(feature = "http3")]
     pub(crate) fn remove(&mut self, key: &K) -> Option<V> {
         self.remove_from_lru(key);
         self.values.remove(key)
     }
 
+    #[cfg(feature = "http3")]
     pub(crate) fn retain(&mut self, mut keep: impl FnMut(&K, &V) -> bool) {
         let to_remove = self
             .values
@@ -89,6 +92,7 @@ where
         }
     }
 
+    #[cfg(any(test, feature = "http2", feature = "http3"))]
     fn touch_key(&mut self, key: &K) {
         if self
             .lru_order
@@ -188,6 +192,7 @@ where
         guard.insert(key, value)
     }
 
+    #[cfg(any(test, feature = "http2"))]
     pub(crate) fn get_or_insert_with_cloned(
         &self,
         key: K,

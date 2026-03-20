@@ -261,15 +261,13 @@ async fn io_open(
                 },
             )
         }
-        "w" | "a" => {
-            allocate_edge_virtual_io_handle(
-                &context,
-                EdgeVirtualIoHandle::FileWrite {
-                    path: path.clone(),
-                    append: mode == "a",
-                },
-            )
-        }
+        "w" | "a" => allocate_edge_virtual_io_handle(
+            &context,
+            EdgeVirtualIoHandle::FileWrite {
+                path: path.clone(),
+                append: mode == "a",
+            },
+        ),
         _ => {
             return Err(VmError::HostError(format!(
                 "edge io::open only supports modes 'r', 'w', or 'a', got '{mode}'",
@@ -299,7 +297,9 @@ async fn io_read_all(
         EdgeIoReadSource::Protocol(target) => read_io_target_all(&context, target).await?,
         EdgeIoReadSource::VirtualHandle(handle) => read_edge_virtual_handle_all(&context, handle)?,
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(text))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        text,
+    ))))
 }
 
 /// Reads a single line of text from an I/O handle.
@@ -314,7 +314,9 @@ async fn io_read_line(
         EdgeIoReadSource::Protocol(target) => read_io_target_line(&context, target).await?,
         EdgeIoReadSource::VirtualHandle(handle) => read_edge_virtual_handle_line(&context, handle)?,
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(text))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        text,
+    ))))
 }
 
 /// Writes text to an I/O handle.
@@ -332,7 +334,9 @@ async fn io_write(
             write_edge_file_path(&path, append, &text).await?;
         }
     }
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(text.len() as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        text.len() as i64,
+    ))))
 }
 
 /// Flushes buffered output for an I/O handle.
@@ -387,5 +391,7 @@ async fn io_exists(
     path: String,
 ) -> Result<CallOutcome, VmError> {
     let exists = tokio::fs::metadata(path.as_str()).await.is_ok();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(exists))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        exists,
+    ))))
 }

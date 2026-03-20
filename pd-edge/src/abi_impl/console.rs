@@ -18,7 +18,9 @@ async fn stdin_read_line(_vm: &mut Vm) -> Result<CallOutcome, VmError> {
     })
     .await
     .map_err(|err| VmError::HostError(format!("stdin read_line task failed: {err}")))??;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(line))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        line,
+    ))))
 }
 
 /// Reads all remaining bytes from process stdin and returns them as a string.
@@ -33,7 +35,9 @@ async fn stdin_read_all(_vm: &mut Vm) -> Result<CallOutcome, VmError> {
     })
     .await
     .map_err(|err| VmError::HostError(format!("stdin read_all task failed: {err}")))??;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(text))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        text,
+    ))))
 }
 
 /// Writes text to process stdout and returns the number of bytes written.
@@ -48,7 +52,9 @@ async fn stdout_write(_vm: &mut Vm, text: String) -> Result<CallOutcome, VmError
     })
     .await
     .map_err(|err| VmError::HostError(format!("stdout write task failed: {err}")))??;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(written))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        written,
+    ))))
 }
 
 /// Flushes process stdout and reports whether the flush succeeded.
@@ -77,7 +83,9 @@ async fn stderr_write(_vm: &mut Vm, text: String) -> Result<CallOutcome, VmError
     })
     .await
     .map_err(|err| VmError::HostError(format!("stderr write task failed: {err}")))??;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(written))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        written,
+    ))))
 }
 
 /// Flushes process stderr and reports whether the flush succeeded.
@@ -99,7 +107,7 @@ async fn stderr_flush(_vm: &mut Vm) -> Result<CallOutcome, VmError> {
 fn args_count() -> Result<CallOutcome, VmError> {
     let program_args = current_console_program_args()?;
     Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
-        program_args.len() as i64
+        program_args.len() as i64,
     ))))
 }
 
@@ -116,5 +124,7 @@ fn args_get(index: i64) -> Result<CallOutcome, VmError> {
         .get(index as usize)
         .cloned()
         .unwrap_or_default();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }

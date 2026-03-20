@@ -1152,7 +1152,9 @@ async fn connection_is_present(
     connection: i64,
 ) -> Result<CallOutcome, VmError> {
     let present = connection_state(&context, decode_connection(&context, connection)?).is_present();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(present))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        present,
+    ))))
 }
 
 /// Sets the scheme for the MQTT connection.
@@ -1276,7 +1278,9 @@ async fn connection_connect(
     connection: i64,
 ) -> Result<CallOutcome, VmError> {
     let connected = ensure_connection_open(&context, connection).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(connected))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        connected,
+    ))))
 }
 
 /// Reports the current lifecycle phase for the MQTT connection.
@@ -1289,7 +1293,9 @@ async fn connection_get_phase(
     let phase = connection_state(&context, decode_connection(&context, connection)?)
         .phase()
         .as_str();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(phase))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        phase,
+    ))))
 }
 
 /// Sends an MQTT DISCONNECT and closes the carrier.
@@ -1344,7 +1350,9 @@ async fn connection_publish_text(
         retain,
     )
     .await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(published))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        published,
+    ))))
 }
 
 /// Publishes a binary payload on the MQTT connection.
@@ -1360,7 +1368,9 @@ async fn connection_publish_binary(
 ) -> Result<CallOutcome, VmError> {
     let payload = value_to_bytes(&payload, "mqtt::connection::publish_binary payload")?.to_vec();
     let published = publish_payload(&context, connection, topic, payload, qos, retain).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(published))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        published,
+    ))))
 }
 
 /// Publishes a base64-encoded binary payload on the MQTT connection.
@@ -1381,7 +1391,9 @@ async fn connection_publish_binary_base64(
         VmError::HostError(format!("mqtt binary payload must be base64 encoded: {err}",))
     })?;
     let published = publish_payload(&context, connection, topic, payload, qos, retain).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(published))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        published,
+    ))))
 }
 
 /// Subscribes the MQTT connection to a topic filter.
@@ -1394,7 +1406,9 @@ async fn connection_subscribe(
     qos: i64,
 ) -> Result<CallOutcome, VmError> {
     let subscribed = subscribe_filter(&context, connection, filter, qos).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(subscribed))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        subscribed,
+    ))))
 }
 
 /// Removes a topic filter subscription from the MQTT connection.
@@ -1406,7 +1420,9 @@ async fn connection_unsubscribe(
     filter: String,
 ) -> Result<CallOutcome, VmError> {
     let unsubscribed = unsubscribe_filter(&context, connection, filter).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(unsubscribed))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        unsubscribed,
+    ))))
 }
 
 /// Reads the next MQTT event from the connection.

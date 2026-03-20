@@ -1455,7 +1455,9 @@ fn render_wrapper_call(
     }
     let wrapper_name = match category {
         SourceCategory::NamespacedBuiltin => wrapper.mut_fn_name.as_str(),
-        SourceCategory::DefaultHost | SourceCategory::MetadataOnlyBuiltin => wrapper.fn_name.as_str(),
+        SourceCategory::DefaultHost | SourceCategory::MetadataOnlyBuiltin => {
+            wrapper.fn_name.as_str()
+        }
     };
     let call = format!("{module}::{wrapper_name}({})", args.join(", "));
     match category {
@@ -1666,9 +1668,7 @@ fn type_label(ty: &Type) -> String {
                 "bool" => "bool".to_string(),
                 "String" | "str" | "VmStringRef" => "string".to_string(),
                 "Bytes" | "VmBytes" | "VmBytesRef" | "VmBytesHandle" => "bytes".to_string(),
-                "Any" | "AnyValue" | "Value" | "VmValueRef" | "VmValueOwned" => {
-                    "any".to_string()
-                }
+                "Any" | "AnyValue" | "Value" | "VmValueRef" | "VmValueOwned" => "any".to_string(),
                 "Array" | "VmArray" | "VmArrayRef" | "VmArrayHandle" => "array".to_string(),
                 "Map" | "VmMap" | "VmMapRef" | "VmMapHandle" => "map".to_string(),
                 "Number" | "NumberValue" => "number".to_string(),

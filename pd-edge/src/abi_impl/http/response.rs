@@ -37,7 +37,9 @@ fn validate_response_status(status: i64) -> Result<u16, VmError> {
 #[pd_edge_host_function(name = http_response::GET_STATUS.name, scope = http)]
 fn get_response_status(context: SharedProxyVmContext) -> Result<CallOutcome, VmError> {
     let status = context.with_downstream_response(|response| response.status.unwrap_or(0));
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(status as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        status as i64,
+    ))))
 }
 
 /// Returns the full body for the downstream HTTP response as text.
@@ -57,7 +59,9 @@ async fn get_response_body(
         }
         Ok(String::from_utf8_lossy(response.body.as_deref().unwrap_or_default()).into_owned())
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns the first trailer value for the downstream HTTP response.
@@ -75,7 +79,9 @@ async fn get_response_trailer(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("")
         .to_string();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns all trailers on the downstream HTTP response as a map.
@@ -85,15 +91,14 @@ async fn get_response_trailers(
     context: SharedProxyVmContext,
 ) -> Result<CallOutcome, VmError> {
     let trailers = read_downstream_response_trailers(&context).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(headers_to_value_map(&trailers))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(
+        headers_to_value_map(&trailers),
+    )))
 }
 
 /// Returns the first value for a header on the downstream HTTP response.
 #[pd_edge_host_function(name = http_response::GET_HEADER.name, scope = http)]
-fn get_response_header(
-    context: SharedProxyVmContext,
-    name: &str,
-) -> Result<CallOutcome, VmError> {
+fn get_response_header(context: SharedProxyVmContext, name: &str) -> Result<CallOutcome, VmError> {
     let header_name = HeaderName::from_bytes(name.as_bytes())
         .map_err(|_| VmError::HostError(format!("invalid header name '{name}'")))?;
     let value = context.with_downstream_response(|response| {
@@ -104,15 +109,19 @@ fn get_response_header(
             .unwrap_or("")
             .to_string()
     });
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(value))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        value,
+    ))))
 }
 
 /// Returns all headers on the downstream HTTP response as a map.
 #[pd_edge_host_function(name = http_response::GET_HEADERS.name, scope = http)]
 fn get_response_headers(context: SharedProxyVmContext) -> Result<CallOutcome, VmError> {
-    Ok(CallOutcome::Return(vm::CallReturn::one(headers_to_value_map(
-        &context.with_downstream_response(|response| response.headers.clone()),
-    ))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(
+        headers_to_value_map(
+            &context.with_downstream_response(|response| response.headers.clone()),
+        ),
+    )))
 }
 
 /// Sets a header on the downstream HTTP response.
@@ -175,7 +184,9 @@ fn write_response_stream(
         chunk.as_bytes(),
         DownstreamResponseStreamWriteMode::ExplicitImmediate,
     )?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(chunk.len() as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        chunk.len() as i64,
+    ))))
 }
 
 /// Finishes the streaming downstream HTTP response body.

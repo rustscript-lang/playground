@@ -2,8 +2,10 @@
 
 use std::collections::HashMap;
 #[cfg(feature = "http2")]
+use std::sync::OnceLock;
+#[cfg(feature = "http2")]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use axum::http::Version;
 

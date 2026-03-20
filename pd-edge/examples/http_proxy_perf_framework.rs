@@ -26,14 +26,15 @@ use hyper_util::rt::TokioIo;
 use rcgen::generate_simple_self_signed;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "http3")]
 use socket2::SockRef;
 #[cfg(feature = "http3")]
 use tokio::net::lookup_host;
-use tokio::{
-    sync::Mutex as AsyncMutex,
-    task::{JoinHandle, JoinSet},
-    time::sleep,
-};
+#[cfg(feature = "http3")]
+use tokio::sync::Mutex as AsyncMutex;
+#[cfg(feature = "http3")]
+use tokio::task::JoinHandle;
+use tokio::{task::JoinSet, time::sleep};
 #[cfg(all(feature = "http2", feature = "tls", not(feature = "http3")))]
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 #[cfg(all(feature = "http2", feature = "tls"))]
@@ -55,11 +56,17 @@ const BENCH_DOWNSTREAM_HTTP2_SESSION_ENTRIES: usize = 128;
 const BENCH_UPSTREAM_HTTP3_REUSE_ENTRIES: usize = 128;
 const BENCH_DOWNSTREAM_HTTP3_SESSION_ENTRIES: usize = 128;
 const BENCH_HTTP3_CLIENT_POOL_MAX: usize = 8;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_SOCKET_BUFFER_BYTES: usize = 4 * 1024 * 1024;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_STREAM_RECEIVE_WINDOW_BYTES: u32 = 8 * 1024 * 1024;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_CONNECTION_RECEIVE_WINDOW_BYTES: u32 = 32 * 1024 * 1024;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_SEND_WINDOW_BYTES: u64 = 32 * 1024 * 1024;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_KEEPALIVE_INTERVAL_MS: u64 = 5_000;
+#[cfg(feature = "http3")]
 const BENCH_HTTP3_MAX_CONCURRENT_BIDI_STREAMS: u32 = 1024;
 const HTTP2_TLS_FEATURE_HINT: &str =
     "HTTP/2 benchmark scenarios require running the example with --features http2,tls";
@@ -1042,6 +1049,8 @@ impl BenchHttpVersion {
 
 impl ScenarioHttpClient {
     fn for_worker(&self, worker_index: usize) -> Self {
+        #[cfg(not(feature = "http3"))]
+        let _ = worker_index;
         match self {
             Self::Reqwest(client) => Self::Reqwest(client.clone()),
             #[cfg(feature = "http3")]
@@ -2602,6 +2611,7 @@ struct BenchmarkUpstreamResponse {
 }
 
 impl BenchmarkUpstreamResponse {
+    #[cfg(feature = "http3")]
     fn response_headers(&self) -> [(&'static str, String); 4] {
         [
             ("x-bench-upstream-client-id", self.client_id.clone()),
@@ -2643,6 +2653,7 @@ impl BenchmarkUpstreamResponse {
         response
     }
 
+    #[cfg(feature = "http3")]
     fn to_http3_head(&self) -> HyperResponse<()> {
         let mut response = HyperResponse::builder()
             .status(HttpStatusCode::OK)

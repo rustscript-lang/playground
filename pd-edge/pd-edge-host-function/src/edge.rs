@@ -997,9 +997,7 @@ fn edge_extract_stmt(
 fn edge_arg_decoder_is_borrowed(decoder: EdgeArgDecoderKind) -> bool {
     matches!(
         decoder,
-        EdgeArgDecoderKind::StringRef
-            | EdgeArgDecoderKind::ValueRef
-            | EdgeArgDecoderKind::MapRef
+        EdgeArgDecoderKind::StringRef | EdgeArgDecoderKind::ValueRef | EdgeArgDecoderKind::MapRef
     )
 }
 
@@ -1007,7 +1005,11 @@ fn type_path_terminal_ident(ty: &Type) -> Option<String> {
     match ty {
         Type::Group(group) => type_path_terminal_ident(&group.elem),
         Type::Paren(paren) => type_path_terminal_ident(&paren.elem),
-        Type::Path(path) => path.path.segments.last().map(|segment| segment.ident.to_string()),
+        Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident.to_string()),
         _ => None,
     }
 }

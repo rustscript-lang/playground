@@ -7,10 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::cache::BoundedLruStore;
 
-use super::model::{
-    Http3ControlEventSource, Http3GoawayState, Http3ResetState, Http3SessionFrontier,
-    Http3StreamFrontier,
-};
+#[cfg(feature = "http3")]
+use super::model::Http3ControlEventSource;
+use super::model::{Http3GoawayState, Http3ResetState, Http3SessionFrontier, Http3StreamFrontier};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Http3DownstreamStreamState {

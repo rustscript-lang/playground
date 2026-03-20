@@ -1148,7 +1148,9 @@ async fn session_get_peer_certificate(
         .peer_certificate_der()
         .map(|bytes| STANDARD.encode(bytes))
         .unwrap_or_default();
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(encoded))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        encoded,
+    ))))
 }
 
 /// Returns whether the TLS session reused a previous TLS session.

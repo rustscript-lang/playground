@@ -6,10 +6,11 @@ use std::sync::OnceLock;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use vm::{
-    CallOutcome, CallReturn, Debugger, DisassembleOptions, JitConfig, ReplLocalBinding, SourceFlavor,
-    SourceMap, SourcePathError, Value, Vm, VmError, VmRecording, VmStatus, compile_source_file,
-    compile_source_for_repl_with_locals, disassemble_vmbc_with_options, encode_program,
-    format_source_with_flavor, render_source_error, render_vm_error, replay_recording_stdio,
+    CallOutcome, CallReturn, Debugger, DisassembleOptions, JitConfig, ReplLocalBinding,
+    SourceFlavor, SourceMap, SourcePathError, Value, Vm, VmError, VmRecording, VmStatus,
+    compile_source_file, compile_source_for_repl_with_locals, disassemble_vmbc_with_options,
+    encode_program, format_source_with_flavor, render_source_error, render_vm_error,
+    replay_recording_stdio,
 };
 use vm::{HostFunctionRegistry, HostImport};
 

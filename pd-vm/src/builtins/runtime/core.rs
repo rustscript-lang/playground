@@ -177,9 +177,10 @@ pub(super) fn builtin_concat(args: &[Value]) -> VmResult<CallReturn> {
     let left = arg::<&Value>(args, 0, "concat left")?;
     let right = arg::<&Value>(args, 1, "concat right")?;
     match (left, right) {
-        (Value::String(left), Value::String(right)) => Ok(return_one(
-            builtin_concat_string_impl(left.as_str(), right.as_str()),
-        )),
+        (Value::String(left), Value::String(right)) => Ok(return_one(builtin_concat_string_impl(
+            left.as_str(),
+            right.as_str(),
+        ))),
         (Value::Array(left), Value::Array(right)) => {
             let mut values = Vec::with_capacity(left.len() + right.len());
             values.extend(left.iter().cloned());
@@ -369,14 +370,14 @@ pub(super) fn builtin_get(args: &[Value]) -> VmResult<CallReturn> {
             }
             let index = usize::try_from(index)
                 .map_err(|_| VmError::HostError("array index overflow".to_string()))?;
-            Ok(return_one(values.get(index).cloned().ok_or_else(
-                || VmError::HostError(format!("array index {index} out of bounds")),
-            )?))
+            Ok(return_one(values.get(index).cloned().ok_or_else(|| {
+                VmError::HostError(format!("array index {index} out of bounds"))
+            })?))
         }
         Value::Map(entries) => {
-            Ok(return_one(entries.get(key).cloned().ok_or_else(
-                || VmError::HostError("map key not found".to_string()),
-            )?))
+            Ok(return_one(entries.get(key).cloned().ok_or_else(|| {
+                VmError::HostError("map key not found".to_string())
+            })?))
         }
         Value::Bytes(values) => {
             let index = key.as_int()?;

@@ -700,7 +700,9 @@ pub(crate) enum HttpCarrierRef {
     DownstreamHttp3Stream(http3::Http3StreamRef),
     Http1DefaultUpstream,
     Http1DynamicExchange(i64),
+    #[cfg(feature = "http2")]
     UpstreamHttp2Stream(http2::Http2StreamRef),
+    #[cfg(feature = "http3")]
     UpstreamHttp3Stream(http3::Http3StreamRef),
 }
 
@@ -710,8 +712,14 @@ impl HttpCarrierRef {
             Self::DownstreamHttp1 | Self::Http1DefaultUpstream | Self::Http1DynamicExchange(_) => {
                 HttpCarrierKind::Http1
             }
+            #[cfg(feature = "http2")]
             Self::DownstreamHttp2Stream(_) | Self::UpstreamHttp2Stream(_) => HttpCarrierKind::Http2,
+            #[cfg(not(feature = "http2"))]
+            Self::DownstreamHttp2Stream(_) => HttpCarrierKind::Http2,
+            #[cfg(feature = "http3")]
             Self::DownstreamHttp3Stream(_) | Self::UpstreamHttp3Stream(_) => HttpCarrierKind::Http3,
+            #[cfg(not(feature = "http3"))]
+            Self::DownstreamHttp3Stream(_) => HttpCarrierKind::Http3,
         }
     }
 }
@@ -2420,26 +2428,31 @@ mod tests {
         time::{Duration, timeout},
     };
 
+    #[cfg(feature = "http2")]
+    use super::HttpExchangeTransportState;
     use super::{
-        Http1DownstreamResolution, HttpCarrierRef, HttpExchangeTransportState, HttpRequestContext,
-        HttpUpstreamResponseSnapshot, HttpUpstreamScheme, LazyRequestId, ProxyVmContext,
-        RequestPortField, RequestStringField, ResolvedSnapshotHttp1DownstreamResponse,
-        SharedProxyVmContext, SnapshotHttp1DownstreamHeaders, UpstreamResponseBodyState,
-        allocate_outbound_exchange_handle, append_outbound_exchange_body,
-        default_upstream_exchange_handle, ensure_outbound_exchange_response_started,
-        header_content_length, outbound_exchange_exists, read_request_body_all,
+        Http1DownstreamResolution, HttpCarrierRef, HttpRequestContext, LazyRequestId,
+        ProxyVmContext, RequestPortField, RequestStringField,
+        ResolvedSnapshotHttp1DownstreamResponse, SharedProxyVmContext,
+        SnapshotHttp1DownstreamHeaders, allocate_outbound_exchange_handle,
+        append_outbound_exchange_body, default_upstream_exchange_handle,
+        ensure_outbound_exchange_response_started, outbound_exchange_exists, read_request_body_all,
         read_request_body_next_chunk, read_request_body_next_line, resolve_http_graph_response,
-        resolve_http1_downstream_response, response_from_upstream_snapshot,
-        sync_response_output_body_headers,
+        resolve_http1_downstream_response, sync_response_output_body_headers,
+    };
+    #[cfg(all(feature = "http2", feature = "tls"))]
+    use super::{
+        HttpUpstreamResponseSnapshot, HttpUpstreamScheme, UpstreamResponseBodyState,
+        header_content_length, response_from_upstream_snapshot,
     };
     use crate::abi_impl::RateLimiterStore;
     use crate::abi_impl::http2::{Http2DownstreamStreamAttachment, Http2StreamRef};
-    #[cfg(feature = "http2")]
+    #[cfg(all(feature = "http2", feature = "tls"))]
     use crate::abi_impl::http2::{
         Http2SendRequest, Http2UpstreamMode, new_shared_http_upstream_sessions, send_request,
         total_active_streams,
     };
-    #[cfg(feature = "http2")]
+    #[cfg(all(feature = "http2", feature = "tls"))]
     use crate::abi_impl::transport::TlsFlowState;
 
     fn test_context() -> SharedProxyVmContext {
@@ -2628,6 +2641,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "http2")]
     #[test]
     fn exchange_transport_records_http2_stream_carrier_ref() {
         let mut transport = HttpExchangeTransportState::default();

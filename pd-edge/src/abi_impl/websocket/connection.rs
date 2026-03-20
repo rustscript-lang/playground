@@ -967,7 +967,9 @@ async fn connection_is_present(
         }
         handle => connection_state(&context, handle).is_present(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(present))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        present,
+    ))))
 }
 
 /// Sets the target endpoint for the WebSocket connection.
@@ -1138,7 +1140,9 @@ async fn connection_send_text(
     let io = websocket_io(&context, connection)?;
     let mut io = io.lock().await;
     let sent = io.send_text(text).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Reads a text message from the WebSocket connection.
@@ -1154,7 +1158,9 @@ async fn connection_read_text(
     let text = io.read_text().await?.unwrap_or_default();
     drop(io);
     refresh_connection_close_state(&context, connection);
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(text))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        text,
+    ))))
 }
 
 /// Sends a base64-encoded binary message over the WebSocket connection.
@@ -1172,7 +1178,9 @@ async fn connection_send_binary_base64(
     let io = websocket_io(&context, connection)?;
     let mut io = io.lock().await;
     let sent = io.send_binary_base64(payload).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Sends a binary message over the WebSocket connection.
@@ -1188,7 +1196,9 @@ async fn connection_send_binary(
     let io = websocket_io(&context, connection)?;
     let mut io = io.lock().await;
     let sent = io.send_binary_bytes(bytes).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Reads a base64-encoded binary message from the WebSocket connection.
@@ -1207,7 +1217,9 @@ async fn connection_read_binary_base64(
     let payload = io.read_binary_base64().await?.unwrap_or_default();
     drop(io);
     refresh_connection_close_state(&context, connection);
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(payload))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        payload,
+    ))))
 }
 
 /// Reads a binary message from the WebSocket connection.
@@ -1223,7 +1235,9 @@ async fn connection_read_binary(
     let payload = io.read_binary_bytes().await?.unwrap_or_default();
     drop(io);
     refresh_connection_close_state(&context, connection);
-    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(payload))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(
+        payload,
+    ))))
 }
 
 /// Returns whether the WebSocket connection has reached EOF.

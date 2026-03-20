@@ -10,7 +10,9 @@ use std::{
 
 use edge_abi::FUNCTIONS as EDGE_ABI_FUNCTIONS;
 use tokio::sync::oneshot;
-use vm::{CallOutcome, CallReturn, HostAsyncBridge, HostOpId, HostStackFunction, Value, Vm, VmError};
+use vm::{
+    CallOutcome, CallReturn, HostAsyncBridge, HostOpId, HostStackFunction, Value, Vm, VmError,
+};
 
 use crate::lock_metrics::{self, LockMetricKey, ProfiledMutexGuard};
 
@@ -41,8 +43,9 @@ pub(crate) use self::http2::{
     SharedHttpDownstreamSessions, SharedHttpUpstreamSessions, new_shared_http_downstream_sessions,
     new_shared_http_upstream_sessions,
 };
+#[cfg(feature = "http3")]
+pub(crate) use self::http3::{DownstreamHttp3ConnectionTracker, Http3DownstreamStreamAttachment};
 pub(crate) use self::http3::{
-    DownstreamHttp3ConnectionTracker, Http3DownstreamStreamAttachment,
     SharedHttp3DownstreamSessions, SharedHttp3UpstreamSessions,
     new_shared_http3_downstream_sessions, new_shared_http3_upstream_sessions,
 };

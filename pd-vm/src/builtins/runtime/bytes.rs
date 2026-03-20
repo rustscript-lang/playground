@@ -154,8 +154,7 @@ mod tests {
     #[test]
     fn to_array_roundtrips() {
         let values = [Value::Int(1), Value::Int(255)];
-        let bytes = builtin_bytes_from_array_u8_impl(&values)
-            .expect("array<u8> should decode");
+        let bytes = builtin_bytes_from_array_u8_impl(&values).expect("array<u8> should decode");
         assert_eq!(bytes, vec![1, 255]);
         assert_eq!(
             builtin_bytes_to_array_u8_impl(&bytes),

@@ -45,10 +45,7 @@ impl HostArgsFunction for PerfIdentityArgsHost {
     }
 }
 
-fn perf_identity_host_static(
-    _vm: &mut Vm,
-    args: &[Value],
-) -> Result<CallOutcome, vm::VmError> {
+fn perf_identity_host_static(_vm: &mut Vm, args: &[Value]) -> Result<CallOutcome, vm::VmError> {
     perf_identity_host_result(args)
 }
 
@@ -797,7 +794,6 @@ fn perf_jit_native_characterizes_array_builtin_loop_latency() {
         jit_vm.jit_native_trace_count(),
         jit_vm.jit_native_exec_count()
     );
-
 }
 
 #[test]

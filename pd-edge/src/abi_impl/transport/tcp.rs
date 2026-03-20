@@ -745,7 +745,9 @@ async fn stream_is_present(
             dynamic_tcp_socket_state(&context, handle)?.is_present()
         }
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(present))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        present,
+    ))))
 }
 
 /// Binds the TCP stream to a local address.
@@ -821,7 +823,9 @@ async fn stream_get_phase(
             dynamic_tcp_socket_state(&context, handle)?.phase().as_str()
         }
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(phase))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        phase,
+    ))))
 }
 
 /// Returns the local address for the TCP stream.
@@ -840,7 +844,9 @@ async fn stream_get_local_addr(
             .to_string(),
         _ => String::new(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(local_addr))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        local_addr,
+    ))))
 }
 
 /// Returns the peer address for the TCP stream.
@@ -865,7 +871,9 @@ async fn stream_get_peer_addr(
             .peer_address()
             .to_string(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(peer_addr))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        peer_addr,
+    ))))
 }
 
 /// Reads text from the TCP stream.
@@ -965,7 +973,9 @@ async fn stream_read_binary(
     let max_bytes = decode_chunk_size(max_bytes)?;
     note_stream_read(&context, stream);
     let chunk = read_stream_binary_chunk(&context, stream, max_bytes).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(chunk))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(
+        chunk,
+    ))))
 }
 
 /// Reads exactly the requested number of binary bytes from the TCP stream.
@@ -1002,7 +1012,9 @@ async fn stream_read_exact_binary(
         out.extend_from_slice(&chunk);
     }
 
-    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(out))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(
+        out,
+    ))))
 }
 
 /// Peeks text from the TCP stream without advancing the VM-visible read cursor.
@@ -1145,7 +1157,9 @@ async fn stream_peek_binary(
             ));
         }
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(chunk))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(bytes_to_value(
+        chunk,
+    ))))
 }
 
 /// Writes text to the TCP stream.
@@ -1213,7 +1227,9 @@ async fn stream_write(
             clear_dynamic_tcp_stream_eof(&context, handle);
         }
     }
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(text.len() as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        text.len() as i64,
+    ))))
 }
 
 /// Writes binary bytes to the TCP stream.
@@ -1286,7 +1302,9 @@ async fn stream_write_binary(
             clear_dynamic_tcp_stream_eof(&context, handle);
         }
     }
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(bytes.len() as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        bytes.len() as i64,
+    ))))
 }
 
 /// Returns whether the TCP stream has reached EOF.

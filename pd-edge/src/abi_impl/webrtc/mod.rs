@@ -638,7 +638,9 @@ async fn connection_is_present(
         WebRtcHandle::Downstream => false,
         handle => connection_state(&context, handle).is_present(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(present))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Bool(
+        present,
+    ))))
 }
 
 /// Sets the ICE server list for the WebRTC connection.
@@ -748,7 +750,9 @@ async fn connection_create_offer(
         state.set_local_description_json(json.clone(), WebRtcPhase::OfferCreated);
         Ok(())
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(json))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        json,
+    ))))
 }
 
 /// Creates an SDP answer for the WebRTC connection.
@@ -780,7 +784,9 @@ async fn connection_create_answer(
         state.set_local_description_json(json.clone(), WebRtcPhase::AnswerCreated);
         Ok(())
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(json))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        json,
+    ))))
 }
 
 /// Attempts to connect the WebRTC connection.
@@ -818,7 +824,9 @@ async fn connection_get_phase(
             state.phase()
         }
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(phase.as_str()))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        phase.as_str(),
+    ))))
 }
 
 /// Sends a text message over the WebRTC connection.
@@ -839,7 +847,9 @@ async fn connection_send_text(
         .send_text(text)
         .await
         .map_err(|err| VmError::HostError(format!("failed to send webrtc text message: {err}")))?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Reads a text message from the WebRTC connection.
@@ -860,7 +870,9 @@ async fn connection_read_text(
         }
         None => String::new(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(text))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        text,
+    ))))
 }
 
 /// Sends a base64-encoded binary message over the WebRTC connection.
@@ -891,7 +903,9 @@ async fn connection_send_binary_base64(
         .map_err(|err| {
             VmError::HostError(format!("failed to send webrtc binary message: {err}"))
         })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Sends a binary message over the WebRTC connection.
@@ -913,7 +927,9 @@ async fn connection_send_binary(
     let sent = data_channel.send(&payload).await.map_err(|err| {
         VmError::HostError(format!("failed to send webrtc binary message: {err}"))
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(sent as i64))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::Int(
+        sent as i64,
+    ))))
 }
 
 /// Reads a base64-encoded binary message from the WebRTC connection.
@@ -937,7 +953,9 @@ async fn connection_read_binary_base64(
         }
         None => String::new(),
     };
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(payload))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        payload,
+    ))))
 }
 
 /// Reads a binary message from the WebRTC connection.

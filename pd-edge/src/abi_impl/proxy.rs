@@ -1000,7 +1000,9 @@ async fn proxy_pipe(
 ) -> Result<CallOutcome, VmError> {
     let max_bytes = decode_chunk_size(max_bytes)?;
     let status = drive_pipe(context, source, destination, max_bytes).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(status))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        status,
+    ))))
 }
 
 /// Relays bytes in both directions between `left` and `right`.
@@ -1017,7 +1019,9 @@ async fn proxy_forward(
 ) -> Result<CallOutcome, VmError> {
     let max_bytes = decode_chunk_size(max_bytes)?;
     let status = drive_forward(context, left, right, max_bytes).await?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(status))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        status,
+    ))))
 }
 
 /// Performs a native runtime handoff between supported proxy stream pairs.
@@ -1044,7 +1048,9 @@ async fn proxy_forward_native(
             "proxy::forward_native supports only downstream CONNECT<->dynamic tcp/tls, downstream websocket<->websocket, or downstream HTTP<->default upstream exchange native pairs; use proxy::forward for the buffered fallback path".to_string(),
         )
     })?;
-    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(status))))
+    Ok(CallOutcome::Return(vm::CallReturn::one(Value::string(
+        status,
+    ))))
 }
 
 #[cfg(test)]
