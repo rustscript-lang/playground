@@ -45,8 +45,7 @@ pub(super) struct CollectFunctionTypesEnv<'a> {
     pub(super) host_import_signatures: &'a HashMap<u16, HostCallableSignature>,
     pub(super) observed_function_param_types: &'a HashMap<u16, Vec<BoundType>>,
     pub(super) observed_function_param_schemas: &'a HashMap<u16, Vec<Option<TypeSchema>>>,
-    pub(super) observed_function_param_callables:
-        &'a HashMap<u16, Vec<Option<InferredCallable>>>,
+    pub(super) observed_function_param_callables: &'a HashMap<u16, Vec<Option<InferredCallable>>>,
     pub(super) observed_function_param_capture_states:
         &'a HashMap<u16, Vec<Option<LocalTypeState>>>,
     pub(super) observed_function_capture_states: &'a HashMap<u16, LocalTypeState>,
@@ -67,9 +66,7 @@ pub(super) fn seed_function_param_state(
             .cloned()
             .flatten()
             .map(|schema| schema.split_optional());
-        let declared_schema = declared_binding
-            .as_ref()
-            .map(|(schema, _)| schema.clone());
+        let declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
         let declared_optional = declared_binding
             .as_ref()
             .map(|(_, optional)| *optional)
@@ -193,13 +190,19 @@ pub(super) fn collect_function_types(
     for (_source_slot, captured_slot) in &function_impl.capture_copies {
         let ty = state.get(*captured_slot);
         record_local_type(outputs.local_types, *captured_slot, ty);
-        record_local_schema(outputs.local_schemas, *captured_slot, state.schema(*captured_slot));
+        record_local_schema(
+            outputs.local_schemas,
+            *captured_slot,
+            state.schema(*captured_slot),
+        );
         record_local_schema_label(
             outputs.local_schema_labels,
             *captured_slot,
             state.schema(*captured_slot),
         );
-        if state.callable(*captured_slot).is_some() || state.callable_schema(*captured_slot).is_some() {
+        if state.callable(*captured_slot).is_some()
+            || state.callable_schema(*captured_slot).is_some()
+        {
             record_callable_slot(outputs.callable_slots, *captured_slot);
         }
         if state.is_optional(*captured_slot) {
@@ -760,7 +763,11 @@ fn collect_expr_types(
                 let arm_state = refine_state_for_match_pattern(&nested, pattern, *value_slot);
                 if let Some(binding_slot) = pattern.binding_slot() {
                     record_local_type(local_types, binding_slot, arm_state.get(binding_slot));
-                    record_local_schema(local_schemas, binding_slot, arm_state.schema(binding_slot));
+                    record_local_schema(
+                        local_schemas,
+                        binding_slot,
+                        arm_state.schema(binding_slot),
+                    );
                     record_local_schema_label(
                         local_schema_labels,
                         binding_slot,
@@ -873,7 +880,11 @@ fn collect_closure_capture_types(
     for (source_slot, captured_slot) in &closure.capture_copies {
         record_local_type(local_types, *captured_slot, state.get(*source_slot));
         record_local_schema(local_schemas, *captured_slot, state.schema(*source_slot));
-        record_local_schema_label(local_schema_labels, *captured_slot, state.schema(*source_slot));
+        record_local_schema_label(
+            local_schema_labels,
+            *captured_slot,
+            state.schema(*source_slot),
+        );
         if state.callable(*source_slot).is_some() || state.callable_schema(*source_slot).is_some() {
             record_callable_slot(callable_slots, *captured_slot);
         }

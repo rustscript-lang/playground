@@ -119,9 +119,7 @@ impl CompileError {
             | CompileError::BinaryOperandTypeMismatch { source_name, .. }
             | CompileError::InvalidFieldAccess { source_name, .. }
             | CompileError::FunctionParameterTypeConflict { source_name, .. }
-            | CompileError::StrictTypingRequired { source_name, .. } => {
-                source_name.as_deref()
-            }
+            | CompileError::StrictTypingRequired { source_name, .. } => source_name.as_deref(),
             _ => None,
         }
     }

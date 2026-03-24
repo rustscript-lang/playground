@@ -128,22 +128,34 @@ pub(super) fn validate_function_impl(
         &function_impl.capture_copies,
         &context.observed_function_capture_states,
     );
-    validate_stmts(
-        &function_impl.body_stmts,
-        &mut state,
-        None,
-        source_name,
-        context,
-        strict_function_add_types,
-    )?;
-    let body_ty = validate_expr(
-        &function_impl.body_expr,
-        &state,
-        Some(function_impl.body_expr_line),
-        source_name,
-        context,
-        strict_function_add_types,
-    )?;
+    let restore_typing_mode = context.typing_mode;
+    if context
+        .function_decls
+        .get(&function_index)
+        .is_some_and(|decl| !decl.type_params.is_empty())
+    {
+        context.typing_mode = TypingMode::DynamicHints;
+    }
+    let body_validation = (|| -> Result<BoundType, CompileError> {
+        validate_stmts(
+            &function_impl.body_stmts,
+            &mut state,
+            None,
+            source_name,
+            context,
+            strict_function_add_types,
+        )?;
+        validate_expr(
+            &function_impl.body_expr,
+            &state,
+            Some(function_impl.body_expr_line),
+            source_name,
+            context,
+            strict_function_add_types,
+        )
+    })();
+    context.typing_mode = restore_typing_mode;
+    let body_ty = body_validation?;
     let observed_body_ty = if body_ty == BoundType::Unknown {
         context.infer_observed_function_return(function_index, &[])
     } else {
@@ -575,13 +587,12 @@ fn validate_declared_local_schema(
         || (expected == BoundType::Map && matches!(actual, BoundType::MapOf(_)))
     {
         if let Some(actual_schema) = actual_schema
-            && let Some(detail) =
-                find_declared_schema_mismatch(
-                    &expected_schema,
-                    actual_schema,
-                    context,
-                    String::new(),
-                )
+            && let Some(detail) = find_declared_schema_mismatch(
+                &expected_schema,
+                actual_schema,
+                context,
+                String::new(),
+            )
         {
             return Err(CompileError::InvalidFieldAccess {
                 line,
@@ -643,13 +654,12 @@ fn validate_declared_return_schema(
         || (expected == BoundType::Map && matches!(actual, BoundType::MapOf(_)))
     {
         if let Some(actual_schema) = actual_schema
-            && let Some(detail) =
-                find_declared_schema_mismatch(
-                    &expected_schema,
-                    actual_schema,
-                    context,
-                    String::new(),
-                )
+            && let Some(detail) = find_declared_schema_mismatch(
+                &expected_schema,
+                actual_schema,
+                context,
+                String::new(),
+            )
         {
             return Err(CompileError::StrictTypingRequired {
                 line,
@@ -1078,17 +1088,18 @@ pub(super) fn bind_expr_result_to_slot(
     context: &mut TypeContext<'_>,
 ) {
     if let Some(callable) = context.callable_binding_from_expr(expr, expr_state) {
-        let declared_binding = declared_schema
-            .map(TypeSchema::split_optional)
-            .or_else(|| {
-                expr_state
-                    .has_declared_schema(slot)
-                    .then(|| (expr_state.schema(slot).cloned(), expr_state.is_optional(slot)))
-                    .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
-            });
-        let slot_declared_schema = declared_binding
-            .as_ref()
-            .map(|(schema, _)| schema.clone());
+        let declared_binding = declared_schema.map(TypeSchema::split_optional).or_else(|| {
+            expr_state
+                .has_declared_schema(slot)
+                .then(|| {
+                    (
+                        expr_state.schema(slot).cloned(),
+                        expr_state.is_optional(slot),
+                    )
+                })
+                .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
+        });
+        let slot_declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
         let declared_optional = declared_binding
             .as_ref()
             .map(|(_, optional)| *optional)
@@ -1104,17 +1115,18 @@ pub(super) fn bind_expr_result_to_slot(
             slot_declared_schema.is_some() || expr_state.has_declared_schema(slot);
         state.bind_callable_with_schema(slot, callable, schema, from_declared_schema, optional);
     } else {
-        let declared_binding = declared_schema
-            .map(TypeSchema::split_optional)
-            .or_else(|| {
-                expr_state
-                    .has_declared_schema(slot)
-                    .then(|| (expr_state.schema(slot).cloned(), expr_state.is_optional(slot)))
-                    .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
-            });
-        let slot_declared_schema = declared_binding
-            .as_ref()
-            .map(|(schema, _)| schema.clone());
+        let declared_binding = declared_schema.map(TypeSchema::split_optional).or_else(|| {
+            expr_state
+                .has_declared_schema(slot)
+                .then(|| {
+                    (
+                        expr_state.schema(slot).cloned(),
+                        expr_state.is_optional(slot),
+                    )
+                })
+                .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
+        });
+        let slot_declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
         let declared_optional = declared_binding
             .as_ref()
             .map(|(_, optional)| *optional)

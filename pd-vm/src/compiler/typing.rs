@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use crate::bytecode::ValueType;
 
 use self::collect::{
-    CollectFunctionTypeOutputs, CollectFunctionTypesEnv, collect_function_types, collect_stmt_types,
-    record_callable_slot, record_local_schema, record_local_schema_label, record_local_type,
-    record_optional_slot,
+    CollectFunctionTypeOutputs, CollectFunctionTypesEnv, collect_function_types,
+    collect_stmt_types, record_callable_slot, record_local_schema, record_local_schema_label,
+    record_local_type, record_optional_slot,
 };
 use self::context::TypeContext;
 pub(crate) use self::context::bound_type_from_schema;
@@ -76,13 +76,18 @@ fn record_entry_local_types(
 ) {
     for entry_local in entry_local_types {
         record_local_type(local_types, entry_local.slot, state.get(entry_local.slot));
-        record_local_schema(local_schemas, entry_local.slot, state.schema(entry_local.slot));
+        record_local_schema(
+            local_schemas,
+            entry_local.slot,
+            state.schema(entry_local.slot),
+        );
         record_local_schema_label(
             local_schema_labels,
             entry_local.slot,
             state.schema(entry_local.slot),
         );
-        if state.callable(entry_local.slot).is_some() || state.callable_schema(entry_local.slot).is_some()
+        if state.callable(entry_local.slot).is_some()
+            || state.callable_schema(entry_local.slot).is_some()
         {
             record_callable_slot(callable_slots, entry_local.slot);
         }

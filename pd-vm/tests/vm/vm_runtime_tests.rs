@@ -422,10 +422,13 @@ fn json_encode_rejects_non_string_map_keys() {
     "#,
     ) {
         Err(err) => match err {
-        vm::SourceError::Compile(vm::CompileError::CallableArgumentTypeMismatch { detail, .. }) => {
-            assert!(detail.contains("provably strings"), "{detail}");
-        }
-        other => panic!("unexpected compiler error: {other}"),
+            vm::SourceError::Compile(vm::CompileError::CallableArgumentTypeMismatch {
+                detail,
+                ..
+            }) => {
+                assert!(detail.contains("provably strings"), "{detail}");
+            }
+            other => panic!("unexpected compiler error: {other}"),
         },
         Ok(_) => panic!("RustScript should reject generic-map json::encode at compile time"),
     }

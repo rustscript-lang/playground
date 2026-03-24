@@ -3108,7 +3108,9 @@ fn rustscript_explicit_optional_type_annotations_work() {
             "#,
             flavor: SourceFlavor::RustScript,
             expected_kind: SourceErrorKind::Compile(CompileErrorKind::InvalidFieldAccess),
-            expected_contains_all: &["local is declared as schema type 'int' but was assigned null"],
+            expected_contains_all: &[
+                "local is declared as schema type 'int' but was assigned null",
+            ],
         },
         SourceErrorCase {
             name: "non optional return rejects null result",
@@ -3121,7 +3123,9 @@ fn rustscript_explicit_optional_type_annotations_work() {
             "#,
             flavor: SourceFlavor::RustScript,
             expected_kind: SourceErrorKind::Compile(CompileErrorKind::StrictTypingRequired),
-            expected_contains_all: &["function 'bad' is declared to return 'int' but produced null"],
+            expected_contains_all: &[
+                "function 'bad' is declared to return 'int' but produced null",
+            ],
         },
         SourceErrorCase {
             name: "typed callable locals reject mismatched closure results",

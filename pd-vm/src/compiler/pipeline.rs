@@ -484,8 +484,9 @@ fn reject_strict_unknown_annotations(parsed: &FrontendIr) -> Result<(), ParseErr
     };
     Err(ParseError {
         line: 1,
-        message: "RustScript requires concrete compile-time types; 'unknown' annotations are not allowed"
-            .to_string(),
+        message:
+            "RustScript requires concrete compile-time types; 'unknown' annotations are not allowed"
+                .to_string(),
         span: Some(span),
         code: Some("E_STRICT_UNKNOWN_TYPE".to_string()),
     })
@@ -511,7 +512,9 @@ fn enforce_strict_rustscript_type_resolution(
 
     let function_decl_lines = collect_function_decl_lines(&parsed.stmts);
     for decl in &parsed.functions {
-        if let Some(schema) = decl.return_schema.as_ref() && !schema_is_fully_known(schema) {
+        if let Some(schema) = decl.return_schema.as_ref()
+            && !schema_is_fully_known(schema)
+        {
             return Err(CompileError::StrictTypingRequired {
                 line: function_decl_lines.get(&decl.index).copied(),
                 source_name: parsed.function_sources.get(&decl.index).cloned(),
@@ -550,7 +553,11 @@ fn slot_is_fully_typed(slot: LocalSlot, type_info: &typing::TypeInferenceResult)
     {
         return true;
     }
-    if let Some(schema) = type_info.local_schemas.get(slot_index).and_then(|schema| schema.as_ref()) {
+    if let Some(schema) = type_info
+        .local_schemas
+        .get(slot_index)
+        .and_then(|schema| schema.as_ref())
+    {
         return schema_is_fully_known(schema);
     }
     type_info.local_types.get(slot_index).copied() != Some(crate::ValueType::Unknown)
@@ -586,7 +593,9 @@ fn collect_strict_slot_sites(parsed: &FrontendIr) -> Vec<(LocalSlot, StrictSlotS
     let local_debug_ranges = collect_local_debug_ranges(&parsed.stmts, &parsed.function_impls);
     let local_source_names = collect_local_source_names(parsed);
     for (name, slot) in &parsed.local_bindings {
-        let line = local_debug_ranges.get(slot).and_then(|range| range.declared_line);
+        let line = local_debug_ranges
+            .get(slot)
+            .and_then(|range| range.declared_line);
         sites.push((
             *slot,
             StrictSlotSite {
@@ -623,7 +632,10 @@ fn collect_strict_slot_sites(parsed: &FrontendIr) -> Vec<(LocalSlot, StrictSlotS
 fn collect_local_source_names(parsed: &FrontendIr) -> HashMap<LocalSlot, Option<String>> {
     let mut out = HashMap::new();
     for (index, stmt) in parsed.stmts.iter().enumerate() {
-        let source_name = parsed.stmt_sources.get(index).and_then(|source| source.as_deref());
+        let source_name = parsed
+            .stmt_sources
+            .get(index)
+            .and_then(|source| source.as_deref());
         record_local_source_names(std::slice::from_ref(stmt), source_name, &mut out);
     }
     for decl in &parsed.functions {
@@ -658,8 +670,16 @@ fn record_local_source_names(
             Stmt::For {
                 init, post, body, ..
             } => {
-                record_local_source_names(std::slice::from_ref(init.as_ref()), source_name.as_deref(), out);
-                record_local_source_names(std::slice::from_ref(post.as_ref()), source_name.as_deref(), out);
+                record_local_source_names(
+                    std::slice::from_ref(init.as_ref()),
+                    source_name.as_deref(),
+                    out,
+                );
+                record_local_source_names(
+                    std::slice::from_ref(post.as_ref()),
+                    source_name.as_deref(),
+                    out,
+                );
                 record_local_source_names(body, source_name.as_deref(), out);
             }
             Stmt::While { body, .. } => {
@@ -873,8 +893,7 @@ fn collect_unknown_inferred_local_types(
     parsed: FrontendIr,
 ) -> Vec<UnknownInferredLocal> {
     let local_debug_ranges = collect_local_debug_ranges(&parsed.stmts, &parsed.function_impls);
-    let parsed =
-        typing::legalize_builtins_and_bind_types(parsed, TypingMode::DynamicHints, &[]);
+    let parsed = typing::legalize_builtins_and_bind_types(parsed, TypingMode::DynamicHints, &[]);
     let type_info = typing::infer_types(&parsed, TypingMode::DynamicHints, &[]);
 
     let mut warnings = Vec::new();
@@ -919,8 +938,7 @@ fn collect_unknown_inferred_local_types(
 fn collect_named_local_type_hints(parsed: FrontendIr) -> Vec<InferredLocalTypeHint> {
     let slot_ranges = collect_local_debug_ranges(&parsed.stmts, &parsed.function_impls);
     let function_decl_lines = collect_function_decl_lines(&parsed.stmts);
-    let parsed =
-        typing::legalize_builtins_and_bind_types(parsed, TypingMode::DynamicHints, &[]);
+    let parsed = typing::legalize_builtins_and_bind_types(parsed, TypingMode::DynamicHints, &[]);
     let type_info = typing::infer_types(&parsed, TypingMode::DynamicHints, &[]);
 
     let mut hints = Vec::new();

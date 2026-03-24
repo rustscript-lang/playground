@@ -638,7 +638,10 @@ impl Parser {
                     break;
                 }
             }
-            self.expect(&TokenKind::RParen, "expected ')' after callable type parameters")?;
+            self.expect(
+                &TokenKind::RParen,
+                "expected ')' after callable type parameters",
+            )?;
             if !self.match_return_type_arrow() {
                 return Err(ParseError {
                     span: None,
@@ -671,7 +674,10 @@ impl Parser {
                 "array" => {
                     if self.match_kind(&TokenKind::Less) {
                         let element = self.parse_declared_type_schema()?;
-                        self.expect(&TokenKind::Greater, "expected '>' after array type argument")?;
+                        self.expect(
+                            &TokenKind::Greater,
+                            "expected '>' after array type argument",
+                        )?;
                         TypeSchema::Array(Box::new(element))
                     } else {
                         TypeSchema::Array(Box::new(TypeSchema::Unknown))

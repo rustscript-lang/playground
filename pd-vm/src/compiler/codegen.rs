@@ -1194,22 +1194,18 @@ impl Compiler {
             }
             return Ok(());
         }
-        let declared_binding = declared_schema
-            .map(TypeSchema::split_optional)
-            .or_else(|| {
-                self.type_state
-                    .has_declared_schema(slot)
-                    .then(|| {
-                        (
-                            self.type_state.schema(slot).cloned(),
-                            self.type_state.is_optional(slot),
-                        )
-                    })
-                    .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
-            });
-        let slot_declared_schema = declared_binding
-            .as_ref()
-            .map(|(schema, _)| schema.clone());
+        let declared_binding = declared_schema.map(TypeSchema::split_optional).or_else(|| {
+            self.type_state
+                .has_declared_schema(slot)
+                .then(|| {
+                    (
+                        self.type_state.schema(slot).cloned(),
+                        self.type_state.is_optional(slot),
+                    )
+                })
+                .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
+        });
+        let slot_declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
         let declared_optional = declared_binding
             .as_ref()
             .map(|(_, optional)| *optional)

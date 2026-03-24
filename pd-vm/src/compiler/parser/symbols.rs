@@ -39,7 +39,8 @@ fn known_host_return_type(name: &str) -> ValueType {
 }
 
 fn known_host_return_schema(name: &str) -> Option<TypeSchema> {
-    default_host_callable(name).and_then(|callable| parse_host_return_schema(callable.signature.return_type))
+    default_host_callable(name)
+        .and_then(|callable| parse_host_return_schema(callable.signature.return_type))
 }
 
 fn parse_host_return_schema(spec: &str) -> Option<TypeSchema> {

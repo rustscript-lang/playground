@@ -3,12 +3,6 @@ use stdlib::rss::iter as iter;
 
 use json;
 
-struct FeedConfig {
-    interval: string,
-    retries: int,
-    mode: string
-}
-
 let unique_channels: [string] =
 collections::dedup::<string>(["world", "tech", "finance", "culture", "world"]);
 let unique_channel_count = unique_channels.length;
@@ -48,7 +42,7 @@ let channel_label_count = iter::enumerate::<string>(["world", "tech", "finance",
 assert(channel_label_count == unique_channel_count);
 
 let traffic_windows = [120, 95, 140, 65];
-let total_hits: int = iter::sum(&traffic_windows);
+let total_hits: number = iter::sum(&traffic_windows);
 assert(total_hits == 420);
 
 let hot_windows: [int] = iter::filter::<int>(&traffic_windows, |value| value >= 100);
@@ -63,11 +57,15 @@ iter::map::<string, bool>(["world", "tech", "finance", "culture"], |name| name.l
 assert(iter::any_true(&long_name_flags));
 assert(iter::all_true([true, true]));
 
-let merged_config: FeedConfig = collections::merge::<string>(
-    {interval: "5m", retries: 2, mode: "steady"},
-    {retries: 4, mode: "burst"}
+let merged_config: map<string> = collections::merge::<string>(
+    {interval: "5m", retries: "2", mode: "steady"},
+    {retries: "4", mode: "burst"}
 );
-let config_mode: string = collections::get_or::<string, string>(&merged_config, "mode", "missing");
+let config_mode: string = collections::get_or::<string, string>(
+    &merged_config,
+    "mode",
+    "missing"
+);
 assert(collections::has::<string, string>(&merged_config, "interval"));
 assert(config_mode == "burst");
 assert(collections::get_or::<string, string>(&merged_config, "missing", "fallback") == "fallback");

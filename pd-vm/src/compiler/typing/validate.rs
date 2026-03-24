@@ -278,13 +278,11 @@ pub(super) fn validate_function_argument_schemas(
     context: &mut TypeContext<'_>,
 ) -> Result<(), CompileError> {
     for (index, arg) in args.iter().enumerate() {
-        let Some(expected_schema) = param_schemas.get(index).and_then(|schema| schema.as_ref()) else {
+        let Some(expected_schema) = param_schemas.get(index).and_then(|schema| schema.as_ref())
+        else {
             continue;
         };
-        let param_name = param_names
-            .get(index)
-            .map(String::as_str)
-            .unwrap_or("arg");
+        let param_name = param_names.get(index).map(String::as_str).unwrap_or("arg");
         let label = format!("{callable_kind} '{callable_name}' argument '{param_name}'");
         validate_callable_expr_against_schema(&label, expected_schema, arg, state, site, context)?;
     }
@@ -304,7 +302,9 @@ fn validate_json_schema(
         | TypeSchema::Number
         | TypeSchema::Bool
         | TypeSchema::String => Ok(()),
-        TypeSchema::Bytes => Err(format!("{path} uses bytes, which json::encode does not support")),
+        TypeSchema::Bytes => Err(format!(
+            "{path} uses bytes, which json::encode does not support"
+        )),
         TypeSchema::Optional(inner) => validate_json_schema(&inner, context, path),
         TypeSchema::GenericParam(name) => Err(format!(
             "{path} depends on generic schema parameter '{name}', which is not concrete enough for json::encode"
@@ -312,8 +312,7 @@ fn validate_json_schema(
         TypeSchema::Callable { .. } => Err(format!(
             "{path} is callable, which json::encode does not support"
         )),
-        TypeSchema::Named(_, _)
-        | TypeSchema::Object(_) => match context.resolve_schema(schema) {
+        TypeSchema::Named(_, _) | TypeSchema::Object(_) => match context.resolve_schema(schema) {
             TypeSchema::Object(fields) => {
                 for (field, value_schema) in &fields {
                     let child_path = if path.is_empty() {
@@ -360,12 +359,13 @@ pub(super) fn validate_json_encode_argument(
         );
     }
     if let Some(schema) = actual_expr_schema(arg, state, context) {
-        return validate_json_schema(&schema, context, "value")
-            .map_err(|detail| CompileError::CallableArgumentTypeMismatch {
+        return validate_json_schema(&schema, context, "value").map_err(|detail| {
+            CompileError::CallableArgumentTypeMismatch {
                 line: site.line,
                 source_name: owned_source_name(site.source_name),
                 detail: format!("builtin 'json::encode' cannot encode this value: {detail}"),
-            });
+            }
+        });
     }
     match context.infer_expr_type(arg, state) {
         BoundType::Null
@@ -1055,8 +1055,7 @@ fn validate_optional_get_access(
     let Expr::OptionalGet { container, key, .. } = expr else {
         return Ok(());
     };
-    if context.is_strict() && !context.expr_has_declared_schema(container, state)
-    {
+    if context.is_strict() && !context.expr_has_declared_schema(container, state) {
         return Err(CompileError::InvalidFieldAccess {
             line: line_context,
             source_name: owned_source_name(source_name),
@@ -1278,7 +1277,10 @@ pub(super) fn validate_branch_state_merge(
 }
 
 fn are_compatible_bound_types_in_mode(lhs: BoundType, rhs: BoundType, strict: bool) -> bool {
-    if strict && (lhs == BoundType::Unknown || rhs == BoundType::Unknown) {
+    if strict
+        && ((lhs == BoundType::Unknown && rhs != BoundType::Unknown)
+            || (rhs == BoundType::Unknown && lhs != BoundType::Unknown))
+    {
         return false;
     }
     are_compatible_bound_types(lhs, rhs)

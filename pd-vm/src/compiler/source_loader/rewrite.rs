@@ -419,6 +419,64 @@ fn module_default_namespace(spec: &str) -> Option<String> {
     }
 }
 
+fn skip_inline_whitespace(bytes: &[u8], mut index: usize) -> usize {
+    while index < bytes.len()
+        && bytes[index].is_ascii_whitespace()
+        && bytes[index] != b'\n'
+        && bytes[index] != b'\r'
+    {
+        index += 1;
+    }
+    index
+}
+
+fn rustscript_turbofish_call_starts(bytes: &[u8], start: usize) -> bool {
+    let mut index = skip_inline_whitespace(bytes, start);
+    if index >= bytes.len() || bytes[index] != b':' {
+        return false;
+    }
+    index = skip_inline_whitespace(bytes, index + 1);
+    if index >= bytes.len() || bytes[index] != b':' {
+        return false;
+    }
+    index = skip_inline_whitespace(bytes, index + 1);
+    if index >= bytes.len() || bytes[index] != b'<' {
+        return false;
+    }
+
+    let mut depth = 0usize;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'<' => depth += 1,
+            b'>' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    index += 1;
+                    break;
+                }
+            }
+            b'\n' | b'\r' => return false,
+            _ => {}
+        }
+        index += 1;
+    }
+
+    if depth != 0 {
+        return false;
+    }
+
+    index = skip_inline_whitespace(bytes, index);
+    index < bytes.len() && bytes[index] == b'('
+}
+
+fn call_starts_after_position(bytes: &[u8], start: usize, flavor: SourceFlavor) -> bool {
+    let index = skip_inline_whitespace(bytes, start);
+    if index < bytes.len() && bytes[index] == b'(' {
+        return true;
+    }
+    flavor == SourceFlavor::RustScript && rustscript_turbofish_call_starts(bytes, start)
+}
+
 fn rewrite_function_call_paths(
     source: &str,
     flavor: SourceFlavor,
@@ -550,16 +608,7 @@ fn rewrite_function_call_paths(
                             k += 1;
                         }
                         let member = &source[member_start..k];
-                        let mut call_check = k;
-                        while call_check < bytes.len()
-                            && bytes[call_check].is_ascii_whitespace()
-                            && bytes[call_check] != b'\n'
-                            && bytes[call_check] != b'\r'
-                        {
-                            call_check += 1;
-                        }
-                        if call_check < bytes.len()
-                            && bytes[call_check] == b'('
+                        if call_starts_after_position(bytes, k, flavor)
                             && (namespace_wildcard
                                 || namespace_methods
                                     .is_some_and(|methods| methods.contains(member)))
@@ -573,15 +622,7 @@ fn rewrite_function_call_paths(
             }
 
             if let Some(target) = alias_calls.get(ident) {
-                let mut j = i;
-                while j < bytes.len()
-                    && bytes[j].is_ascii_whitespace()
-                    && bytes[j] != b'\n'
-                    && bytes[j] != b'\r'
-                {
-                    j += 1;
-                }
-                if j < bytes.len() && bytes[j] == b'(' {
+                if call_starts_after_position(bytes, i, flavor) {
                     out.push_str(target);
                     continue;
                 }
@@ -596,15 +637,7 @@ fn rewrite_function_call_paths(
                 if rem.is_empty() || !is_valid_ident(rem) {
                     continue;
                 }
-                let mut j = i;
-                while j < bytes.len()
-                    && bytes[j].is_ascii_whitespace()
-                    && bytes[j] != b'\n'
-                    && bytes[j] != b'\r'
-                {
-                    j += 1;
-                }
-                if j < bytes.len() && bytes[j] == b'(' {
+                if call_starts_after_position(bytes, i, flavor) {
                     out.push_str(rem);
                     rewritten_by_prefix = true;
                     break;
@@ -819,6 +852,79 @@ is_empty("");
 "#
             .trim()
         );
+    }
+
+    #[test]
+    fn rustscript_namespace_import_turbofish_calls_rewrite_to_direct_calls() {
+        let source = r#"collections::dedup::<string>(["rss", "rss"]);"#;
+        let path = Path::new("tests/main.rss");
+        let imports = vec![ModuleImport {
+            spec: "collections.rss".to_string(),
+            clause: ImportClause::Namespace("collections".to_string()),
+            line: 1,
+        }];
+        let mut module_exports =
+            HashMap::<PathBuf, HashMap<String, ExportedFunctionSignature>>::new();
+        module_exports.insert(
+            PathBuf::from("tests").join("collections.rss"),
+            HashMap::from([(
+                "dedup".to_string(),
+                ExportedFunctionSignature {
+                    arity: 1,
+                    type_params: vec!["T".to_string()],
+                },
+            )]),
+        );
+
+        let rewritten = rewrite_imported_call_sites(
+            source,
+            SourceFlavor::RustScript,
+            path,
+            &imports,
+            &module_exports,
+            &CompileSourceFileOptions::default(),
+        )
+        .expect("rewrite should succeed");
+
+        assert_eq!(rewritten.source.trim(), r#"dedup::<string>(["rss", "rss"]);"#);
+    }
+
+    #[test]
+    fn rustscript_named_import_turbofish_calls_rewrite_to_direct_calls() {
+        let source = r#"dedup_items::<string>(["rss", "rss"]);"#;
+        let path = Path::new("tests/main.rss");
+        let imports = vec![ModuleImport {
+            spec: "collections.rss".to_string(),
+            clause: ImportClause::Named(vec![NamedImport {
+                imported: "dedup".to_string(),
+                local: "dedup_items".to_string(),
+            }]),
+            line: 1,
+        }];
+        let mut module_exports =
+            HashMap::<PathBuf, HashMap<String, ExportedFunctionSignature>>::new();
+        module_exports.insert(
+            PathBuf::from("tests").join("collections.rss"),
+            HashMap::from([(
+                "dedup".to_string(),
+                ExportedFunctionSignature {
+                    arity: 1,
+                    type_params: vec!["T".to_string()],
+                },
+            )]),
+        );
+
+        let rewritten = rewrite_imported_call_sites(
+            source,
+            SourceFlavor::RustScript,
+            path,
+            &imports,
+            &module_exports,
+            &CompileSourceFileOptions::default(),
+        )
+        .expect("rewrite should succeed");
+
+        assert_eq!(rewritten.source.trim(), r#"dedup::<string>(["rss", "rss"]);"#);
     }
 
     #[test]

@@ -1061,6 +1061,13 @@ mod runtime_tests {
         ]
     }
 
+    fn rss_playground_example(name: &str) -> &'static str {
+        rss_playground_examples()
+            .into_iter()
+            .find_map(|(example_name, source)| (example_name == name).then_some(source))
+            .unwrap_or_else(|| panic!("missing playground example '{name}'"))
+    }
+
     struct TestPrintFunction;
 
     impl HostFunction for TestPrintFunction {
@@ -1169,6 +1176,32 @@ mod runtime_tests {
 
             let _stack = run_rss_fixture_without_jit(source);
         }
+    }
+
+    #[test]
+    fn playground_demo_example_lints_clean() {
+        let lint = lint_source_with_flavor(
+            rss_playground_example("Demo"),
+            SourceFlavor::RustScript,
+        );
+        assert!(
+            lint.diagnostics.is_empty(),
+            "playground example 'Demo' should be lint clean, got {:?}",
+            lint.diagnostics
+        );
+    }
+
+    #[test]
+    fn playground_collections_and_iter_example_lints_clean() {
+        let lint = lint_source_with_flavor(
+            rss_playground_example("Collections and Iter Example"),
+            SourceFlavor::RustScript,
+        );
+        assert!(
+            lint.diagnostics.is_empty(),
+            "playground example 'Collections and Iter Example' should be lint clean, got {:?}",
+            lint.diagnostics
+        );
     }
 
     #[test]

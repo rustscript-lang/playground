@@ -841,7 +841,11 @@ fn read_optional_u32(cursor: &mut Cursor<'_>) -> Result<Option<u32>, WireError> 
     }
 }
 
-fn write_bool_slice(field: &'static str, values: &[bool], out: &mut Vec<u8>) -> Result<(), WireError> {
+fn write_bool_slice(
+    field: &'static str,
+    values: &[bool],
+    out: &mut Vec<u8>,
+) -> Result<(), WireError> {
     write_u32_count(field, values.len(), out)?;
     out.extend(values.iter().map(|value| u8::from(*value)));
     Ok(())

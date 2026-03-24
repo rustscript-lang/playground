@@ -35,8 +35,7 @@ pub(super) struct TypeContext<'a> {
     pub(super) observed_function_param_types: HashMap<u16, Vec<BoundType>>,
     pub(super) observed_function_param_schemas: HashMap<u16, Vec<Option<TypeSchema>>>,
     pub(super) observed_function_param_callables: HashMap<u16, Vec<Option<InferredCallable>>>,
-    pub(super) observed_function_param_capture_states:
-        HashMap<u16, Vec<Option<LocalTypeState>>>,
+    pub(super) observed_function_param_capture_states: HashMap<u16, Vec<Option<LocalTypeState>>>,
     pub(super) observed_function_capture_states: HashMap<u16, LocalTypeState>,
     pub(super) function_param_conflicts: HashMap<u16, String>,
     observed_return_types: HashMap<(u16, Vec<String>), BoundType>,
@@ -1392,9 +1391,13 @@ impl<'a> TypeContext<'a> {
                 self.active_functions.pop();
                 return BoundType::Unknown;
             };
-            let Some(mut nested) =
-                self.build_function_call_state(index, &function_impl, &function_decl, args, caller_state)
-            else {
+            let Some(mut nested) = self.build_function_call_state(
+                index,
+                &function_impl,
+                &function_decl,
+                args,
+                caller_state,
+            ) else {
                 if !function_decl.type_params.is_empty() {
                     self.pop_generic_bindings();
                 }
@@ -1533,7 +1536,8 @@ impl<'a> TypeContext<'a> {
         }
         if let Some(schema) = function_decl.return_schema.as_ref() {
             let resolved = Some(self.resolve_schema(schema).clone_inner_if_optional());
-            self.observed_return_schemas.insert(instance_key, resolved.clone());
+            self.observed_return_schemas
+                .insert(instance_key, resolved.clone());
             return resolved;
         }
         let function_impl = self.function_impls.get(&index).cloned()?;
@@ -1621,7 +1625,11 @@ impl<'a> TypeContext<'a> {
                 nested.copy_binding_from(caller_state, *source_slot, *captured_slot, None, false);
             }
         }
-        for (param_index, (arg, slot)) in args.iter().zip(function_impl.param_slots.iter()).enumerate() {
+        for (param_index, (arg, slot)) in args
+            .iter()
+            .zip(function_impl.param_slots.iter())
+            .enumerate()
+        {
             let declared_schema = function_decl
                 .arg_schemas
                 .get(param_index)
@@ -1740,7 +1748,10 @@ impl<'a> TypeContext<'a> {
             &mut nested,
             &function_impl.param_slots,
             Some(function_decl.arg_schemas.as_slice()),
-            super::collect::observed_function_param_slice(&self.observed_function_param_types, index),
+            super::collect::observed_function_param_slice(
+                &self.observed_function_param_types,
+                index,
+            ),
             super::collect::observed_function_param_schema_slice(
                 &self.observed_function_param_schemas,
                 index,
@@ -2052,17 +2063,18 @@ impl<'a> TypeContext<'a> {
         expr_state: &LocalTypeState,
     ) -> BoundType {
         if let Some(callable) = self.callable_binding_from_expr(expr, expr_state) {
-            let declared_binding = declared_schema
-                .map(TypeSchema::split_optional)
-                .or_else(|| {
-                    expr_state
-                        .has_declared_schema(slot)
-                        .then(|| (expr_state.schema(slot).cloned(), expr_state.is_optional(slot)))
-                        .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
-                });
-            let slot_declared_schema = declared_binding
-                .as_ref()
-                .map(|(schema, _)| schema.clone());
+            let declared_binding = declared_schema.map(TypeSchema::split_optional).or_else(|| {
+                expr_state
+                    .has_declared_schema(slot)
+                    .then(|| {
+                        (
+                            expr_state.schema(slot).cloned(),
+                            expr_state.is_optional(slot),
+                        )
+                    })
+                    .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
+            });
+            let slot_declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
             let declared_optional = declared_binding
                 .as_ref()
                 .map(|(_, optional)| *optional)
@@ -2089,17 +2101,18 @@ impl<'a> TypeContext<'a> {
             BoundType::Unknown
         } else {
             let ty = self.infer_expr_type(expr, expr_state);
-            let declared_binding = declared_schema
-                .map(TypeSchema::split_optional)
-                .or_else(|| {
-                    expr_state
-                        .has_declared_schema(slot)
-                        .then(|| (expr_state.schema(slot).cloned(), expr_state.is_optional(slot)))
-                        .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
-                });
-            let slot_declared_schema = declared_binding
-                .as_ref()
-                .map(|(schema, _)| schema.clone());
+            let declared_binding = declared_schema.map(TypeSchema::split_optional).or_else(|| {
+                expr_state
+                    .has_declared_schema(slot)
+                    .then(|| {
+                        (
+                            expr_state.schema(slot).cloned(),
+                            expr_state.is_optional(slot),
+                        )
+                    })
+                    .and_then(|(schema, optional)| schema.map(|schema| (schema, optional)))
+            });
+            let slot_declared_schema = declared_binding.as_ref().map(|(schema, _)| schema.clone());
             let declared_optional = declared_binding
                 .as_ref()
                 .map(|(_, optional)| *optional)
