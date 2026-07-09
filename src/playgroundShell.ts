@@ -1,3 +1,5 @@
+import logoUrl from "./assets/rustscript-logo-crabstick.png";
+
 export type SidebarPanelKey = "diagnostics" | "output" | "stack" | "debug" | "fuel";
 
 export interface PanelController {
@@ -193,10 +195,16 @@ export function mountPlaygroundUi(
   app.innerHTML = `
     <main class="page">
       <section class="hero">
-        <h1>RustScript playground</h1>
-        <p>
-        <span>Run or debug directly in wasm runtime with Monaco breakpoints, stepping controls, and hover variable inspect.</span>
-        <span><a href="./about.html" style="color: #58a6ff; text-decoration: underline;">Read more about the VM & RustScript here.</a></span>
+        <div class="hero-brand">
+          <img class="hero-logo" src="${logoUrl}" alt="RustScript crab stick logo" width="72" height="72" />
+          <div class="hero-copy">
+            <h1>RustScript playground</h1>
+            <p>
+              <span>Run or debug directly in wasm runtime with Monaco breakpoints, stepping controls, and hover variable inspect.</span>
+              <span><a href="./about.html">Read more about the VM & RustScript here.</a></span>
+            </p>
+          </div>
+        </div>
       </section>
       <section class="workspace">
         <div class="toolbar">
