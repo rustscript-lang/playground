@@ -19,16 +19,14 @@ The `Build and deploy Pages` workflow builds the playground and publishes `dist/
 
 Published URL:
 
-https://rustscript-lang.github.io/rustscript-playground/
+https://rustscript-lang.github.io/playground/
 
 ## Development
 
 The web app expects a sibling RustScript checkout by default:
 
 ```bash
-cd /home/wow/workspace
-# rustscript/ and rustscript-playground/ should be siblings
-cd rustscript-playground
+cd /home/wow/rustscript/playground
 bun install
 bun run dev
 ```
@@ -44,6 +42,6 @@ Useful commands:
 ## Related projects
 
 - RustScript core VM and wasm runtime: https://github.com/rustscript-lang/rustscript
-- Controller Web UI: https://github.com/rustscript-lang/pd-controller-webui
+- Controller Web UI: https://github.com/rustscript-lang/pd-controller/tree/master/webui
 - Controller service: https://github.com/rustscript-lang/pd-controller
 - Edge runtime: https://github.com/rustscript-lang/pd-edge

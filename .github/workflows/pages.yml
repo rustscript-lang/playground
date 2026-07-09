@@ -41,7 +41,7 @@ jobs:
         working-directory: app
         env:
           RUSTSCRIPT_REPO: ${{ github.workspace }}/rustscript
-          VITE_BASE: /rustscript-playground/
+          VITE_BASE: /playground/
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:

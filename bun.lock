@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "pd-vm-webui",
+      "name": "playground",
       "dependencies": {
         "monaco-editor": "^0.55.1",
       },
