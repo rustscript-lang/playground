@@ -25,6 +25,11 @@ jobs:
         with:
           repository: rustscript-lang/rustscript
           path: rustscript
+      - name: Checkout pd-edge
+        uses: actions/checkout@v4
+        with:
+          repository: rustscript-lang/pd-edge
+          path: pd-edge
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
