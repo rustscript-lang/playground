@@ -4,7 +4,7 @@ Browser playground for `pd-vm`, backed by the `pd-vm-wasm` crate with the `runti
 
 ## Features
 
-- RustScript, JavaScript, Lua, and Scheme source frontends
+- RustScript, JavaScript, and Lua source frontends
 - Live wasm diagnostics surfaced as Monaco markers plus a diagnostics panel
 - Run and debug workflows directly in the browser
 - Breakpoints, step/next/out/continue controls, stack/locals views, and hover inspection
