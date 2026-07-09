@@ -52,5 +52,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: app/dist
-          cname: rustscript.org
+          cname: playground.rustscript.org
           force_orphan: true
