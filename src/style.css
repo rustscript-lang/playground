@@ -150,6 +150,14 @@ body {
 
 .hero-copy {
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.hero-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .hero h1 {
@@ -178,14 +186,16 @@ body {
 
 .hero-links {
   display: flex;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.65rem;
+  margin-left: auto;
 }
 
 .hero-links a {
   display: inline-flex;
   align-items: center;
+  gap: 0.38rem;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-radius: 999px;
   padding: 0.3rem 0.65rem;
@@ -195,6 +205,12 @@ body {
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
+}
+
+.hero-links svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
 }
 
 .hero-links a:hover {
@@ -1059,6 +1075,17 @@ body {
 
   .hero-brand {
     align-items: flex-start;
+  }
+
+  .hero-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .hero-links {
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .hero-logo {
