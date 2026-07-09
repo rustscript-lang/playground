@@ -176,6 +176,32 @@ body {
   text-underline-offset: 0.18em;
 }
 
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.hero-links a {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: color-mix(in srgb, var(--surface-elevated) 82%, var(--accent) 8%);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.hero-links a:hover {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated) 72%, var(--accent) 14%);
+}
+
 .workspace {
   min-height: 0;
   height: 100%;

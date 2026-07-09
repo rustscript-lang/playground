@@ -203,6 +203,10 @@ export function mountPlaygroundUi(
               <span>Run or debug directly in wasm runtime with Monaco breakpoints, stepping controls, and hover variable inspect.</span>
               <span><a href="./about.html">Read more about the VM & RustScript here.</a></span>
             </p>
+            <nav class="hero-links" aria-label="project links">
+              <a href="https://github.com/rustscript-lang/playground" rel="noreferrer" target="_blank">Playground repo</a>
+              <a href="https://github.com/rustscript-lang/rustscript" rel="noreferrer" target="_blank">RustScript repo</a>
+            </nav>
           </div>
         </div>
       </section>

@@ -46,11 +46,11 @@ jobs:
         working-directory: app
         env:
           RUSTSCRIPT_REPO: ${{ github.workspace }}/rustscript
-          VITE_BASE: /playground/
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: app/dist
+          cname: rustscript.org
           force_orphan: true
