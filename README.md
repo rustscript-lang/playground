@@ -1,28 +1,49 @@
-# RustScript
+# RustScript Playground
 
-RustScript is the language, VM, Lua/JavaScript frontends, standard library, examples, browser playground, bytecode/AOT tooling, and debugger-facing runtime contract for the RustScript family.
+Browser playground for `pd-vm`, backed by the `pd-vm-wasm` crate with the `runtime` feature and a Monaco-based editor.
+
+## Features
+
+- RustScript, JavaScript, Lua, and Scheme source frontends
+- Live wasm diagnostics surfaced as Monaco markers plus a diagnostics panel
+- Run and debug workflows directly in the browser
+- Breakpoints, step/next/out/continue controls, stack/locals views, and hover inspection
+- Print output and final stack panels
+- Fuel and epoch interruption controls for run and debug sessions
+- Monaco autocomplete from the wasm completion catalog
+- Browser-hosted `runtime::sleep(...)` support in the wasm runtime
+
+## GitHub Pages
+
+The `Build and deploy Pages` workflow builds the playground and publishes `dist/` to the `gh-pages` branch.
+
+Published URL:
+
+https://rustscript-lang.github.io/rustscript-playground/
+
+## Development
+
+The web app expects a sibling RustScript checkout by default:
+
+```bash
+cd /home/wow/workspace
+# rustscript/ and rustscript-playground/ should be siblings
+cd rustscript-playground
+bun install
+bun run dev
+```
+
+Set `RUSTSCRIPT_REPO=/path/to/rustscript` if the checkout is elsewhere.
+
+Useful commands:
+
+- `bun run dev` — rebuilds the wasm playground runtime and starts Vite
+- `bun run build` — rebuilds wasm, type-checks, and produces `dist/`
+- `bun run preview` — serves the built bundle locally
 
 ## Related projects
 
-- RustScript core: https://github.com/rustscript-lang/rustscript
-- CLR VM: https://github.com/rustscript-lang/rustscript-clr-vm
-- Edge runtime and ABI: https://github.com/rustscript-lang/pd-edge
-- Controller: https://github.com/rustscript-lang/pd-controller
-
-## Crate usage
-
-Consumers can refer to the VM crate from this repository:
-
-```toml
-pd-vm = { git = "https://github.com/rustscript-lang/rustscript", package = "pd-vm" }
-pd-host-function = { git = "https://github.com/rustscript-lang/rustscript", package = "pd-host-function" }
-```
-
-The workspace retains `pd-edge-abi` locally because current VM feature gates expose edge-oriented host ABI schemas.
-
-## Test
-
-```bash
-cargo test --workspace --jobs 4
-cargo build --workspace --release --jobs 4
-```
+- RustScript core VM and wasm runtime: https://github.com/rustscript-lang/rustscript
+- Controller Web UI: https://github.com/rustscript-lang/pd-controller-webui
+- Controller service: https://github.com/rustscript-lang/pd-controller
+- Edge runtime: https://github.com/rustscript-lang/pd-edge

@@ -1,0 +1,51 @@
+name: Build and deploy Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v4
+        with:
+          path: app
+      - name: Checkout RustScript
+        uses: actions/checkout@v4
+        with:
+          repository: rustscript-lang/rustscript
+          path: rustscript
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.9
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: app
+      - name: Build
+        run: bun run build
+        working-directory: app
+        env:
+          RUSTSCRIPT_REPO: ${{ github.workspace }}/rustscript
+          VITE_BASE: /rustscript-playground/
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: app/dist
+          force_orphan: true
