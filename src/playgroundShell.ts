@@ -212,7 +212,7 @@ export function mountPlaygroundUi(
               </nav>
             </div>
             <p>
-              <span>Run or debug directly in wasm runtime with Monaco breakpoints, stepping controls, and hover variable inspect.</span>
+              <span>Run or debug directly in wasm runtime with breakpoints, stepping controls, and hover variable inspect.</span>
             </p>
           </div>
         </div>
