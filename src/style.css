@@ -42,9 +42,9 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg-0: #17100d;
-  --bg-1: #231713;
-  --bg-2: #35231d;
+  --bg-0: #12100f;
+  --bg-1: #1a1817;
+  --bg-2: #262422;
   --ink-0: #f6eee8;
   --ink-1: #cbb5a9;
   --panel: rgba(31, 22, 18, 0.86);
