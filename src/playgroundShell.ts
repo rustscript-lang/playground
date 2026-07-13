@@ -4,6 +4,7 @@ export type SidebarPanelKey = "diagnostics" | "output" | "stack" | "debug" | "fu
 
 export interface PanelController {
   setCollapsed(panelKey: SidebarPanelKey, collapsed: boolean): void;
+  setMobileExpanded(expanded: boolean): void;
   toggle(panelKey: SidebarPanelKey): void;
   expand(panelKeys: SidebarPanelKey[]): void;
 }
@@ -137,9 +138,40 @@ function queryRequired<T extends Element>(selector: string): T {
   return node;
 }
 
+function mountResponsiveSampleControl(sampleControlEl: HTMLElement): void {
+  const desktopSlot = queryRequired<HTMLElement>("#desktop-sample-slot");
+  const mobileSlot = queryRequired<HTMLElement>("#mobile-sample-slot");
+  const mobileQuery = window.matchMedia("(max-width: 760px)");
+
+  const placeSampleControl = (): void => {
+    const target = mobileQuery.matches ? mobileSlot : desktopSlot;
+    if (sampleControlEl.parentElement !== target) {
+      target.append(sampleControlEl);
+    }
+  };
+
+  placeSampleControl();
+  mobileQuery.addEventListener("change", placeSampleControl);
+}
+
 function createPanelController(sidebarPanels: HTMLElement[]): PanelController {
   const sidebarPanelEls = new Map<SidebarPanelKey, HTMLElement>();
   const sidebarPanelToggleEls = new Map<SidebarPanelKey, HTMLButtonElement>();
+  const mobileDrawer = queryRequired<HTMLElement>(".panels");
+  const mobileDrawerToggle = queryRequired<HTMLButtonElement>("#mobile-panel-toggle");
+  const mobileDrawerLabel = queryRequired<HTMLElement>("#mobile-panel-toggle-label");
+  const mobileQuery = window.matchMedia("(max-width: 760px)");
+
+  function setMobileExpanded(expanded: boolean): void {
+    mobileDrawer.dataset.mobileExpanded = expanded ? "true" : "false";
+    mobileDrawerToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    mobileDrawerToggle.setAttribute("aria-label", expanded ? "Minimize tools" : "Expand tools");
+    mobileDrawerLabel.textContent = expanded ? "Minimize tools" : "Expand tools";
+  }
+
+  mobileDrawerToggle.addEventListener("click", () => {
+    setMobileExpanded(mobileDrawer.dataset.mobileExpanded !== "true");
+  });
 
   for (const panelEl of sidebarPanels) {
     const key = panelEl.dataset.panelKey as SidebarPanelKey | undefined;
@@ -173,6 +205,7 @@ function createPanelController(sidebarPanels: HTMLElement[]): PanelController {
 
   return {
     setCollapsed,
+    setMobileExpanded,
     toggle(panelKey) {
       const panelEl = sidebarPanelEls.get(panelKey);
       if (!panelEl) {
@@ -183,6 +216,9 @@ function createPanelController(sidebarPanels: HTMLElement[]): PanelController {
     expand(panelKeys) {
       for (const panelKey of panelKeys) {
         setCollapsed(panelKey, false);
+      }
+      if (mobileQuery.matches) {
+        setMobileExpanded(true);
       }
     }
   };
@@ -246,9 +282,11 @@ export function mountPlaygroundUi(
             <div id="debug-epoch-state" class="fuel-state-line" hidden>Debug epoch: idle</div>
           </div>
           <div class="toolbar-right">
-            <div class="sample-control">
-              <label for="rss-program-select">RSS Program</label>
-              <select id="rss-program-select" aria-label="RSS program"></select>
+            <div id="desktop-sample-slot" class="desktop-sample-slot">
+              <div id="sample-control" class="sample-control">
+                <label for="rss-program-select">RSS Program</label>
+                <select id="rss-program-select" aria-label="RSS program"></select>
+              </div>
             </div>
             <button
               id="format-button"
@@ -268,7 +306,20 @@ export function mountPlaygroundUi(
           <div class="editor-shell">
             <div id="editor" class="editor"></div>
           </div>
-          <aside class="panels" aria-label="runtime details">
+          <aside class="panels" aria-label="runtime details" data-mobile-expanded="false">
+            <div class="mobile-panel-header">
+              <div id="mobile-sample-slot" class="mobile-sample-slot"></div>
+              <button
+                id="mobile-panel-toggle"
+                class="mobile-panel-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-label="Expand tools"
+              >
+                ${ICONS.chevron_down}
+                <span id="mobile-panel-toggle-label" class="sr-only">Expand tools</span>
+              </button>
+            </div>
             ${renderPanel("diagnostics", "diagnostics", "Diagnostics", `
               <pre id="diagnostics" class="panel-content">No lint diagnostics.</pre>
             `)}
@@ -393,6 +444,7 @@ export function mountPlaygroundUi(
   mountIconButton(ui.debugContinueButtonEl, "continue", "Continue");
   mountIconButton(ui.stopButtonEl, "stop", "Stop");
   mountIconButton(ui.formatButtonEl, "format", "Format Document");
+  mountResponsiveSampleControl(queryRequired<HTMLElement>("#sample-control"));
 
   return ui;
 }

@@ -269,11 +269,19 @@ body {
   max-width: min(100%, 24rem);
 }
 
+.desktop-sample-slot {
+  display: contents;
+}
+
+.mobile-panel-header {
+  display: none;
+}
+
 .sample-control label {
   white-space: nowrap;
 }
 
-.toolbar .sample-control select {
+.sample-control select {
   min-width: 0;
   width: 100%;
 }
@@ -338,20 +346,23 @@ body {
   display: none;
 }
 
-.toolbar label {
+.toolbar label,
+.sample-control label {
   font-size: 0.88rem;
   letter-spacing: 0.03em;
   transition: color var(--theme-transition-duration) var(--theme-transition-ease);
 }
 
 .toolbar select,
-.toolbar button {
+.toolbar button,
+.sample-control select {
   border-radius: 0.28rem;
   border: 1px solid var(--control-border);
   font: inherit;
 }
 
-.toolbar select {
+.toolbar select,
+.sample-control select {
   min-width: 12rem;
   padding: 0.44rem 0.58rem;
   color: var(--ink-0);
@@ -1146,23 +1157,21 @@ body {
 
   .workspace {
     position: relative;
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.45rem;
   }
 
   .toolbar {
-    position: fixed;
-    left: max(0.5rem, env(safe-area-inset-left));
-    right: max(0.5rem, env(safe-area-inset-right));
-    bottom: max(0.5rem, env(safe-area-inset-bottom));
-    z-index: 3000;
+    position: relative;
+    z-index: 2100;
+    width: 100%;
     flex-wrap: nowrap;
     gap: 0.34rem;
     max-height: 3.45rem;
     padding: 0.36rem;
     overflow-x: auto;
     overflow-y: hidden;
-    border-radius: 999px;
+    border-radius: 0.68rem;
     backdrop-filter: blur(14px);
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -1208,33 +1217,12 @@ body {
     gap: 0.34rem;
   }
 
-  .toolbar-status-strip {
+  .desktop-sample-slot {
     display: none;
   }
 
-  .sample-control {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 0;
-    max-width: none;
-  }
-
-  .sample-control label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .toolbar select {
-    min-width: 11rem;
-    max-width: 12.5rem;
-    padding: 0.42rem 0.52rem;
+  .toolbar-status-strip {
+    display: none;
   }
 
   .theme-control {
@@ -1247,8 +1235,8 @@ body {
 
   .workspace-body {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(6.5rem, 24dvh);
-    gap: 0.45rem;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
   }
 
   .editor-shell {
@@ -1256,13 +1244,110 @@ body {
   }
 
   .panels {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
+    position: fixed;
+    left: max(0.5rem, env(safe-area-inset-left));
+    right: max(0.5rem, env(safe-area-inset-right));
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    z-index: 3000;
+    height: 3.55rem;
+    max-height: 33.333dvh;
+    display: flex;
+    flex-direction: column;
     gap: 0.45rem;
-    padding-bottom: 3.9rem;
+    padding: 0.42rem;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    border-radius: 0.85rem;
+    background: var(--panel);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 18px 48px var(--shadow-strong);
+    transition:
+      height var(--theme-transition-duration) var(--theme-transition-ease),
+      background-color var(--theme-transition-duration) var(--theme-transition-ease),
+      border-color var(--theme-transition-duration) var(--theme-transition-ease),
+      box-shadow var(--theme-transition-duration) var(--theme-transition-ease);
+  }
+
+  .panels[data-mobile-expanded="true"] {
+    height: 33.333dvh;
+    overflow-y: auto;
+  }
+
+  .panels[data-mobile-expanded="false"] > .panel {
+    display: none;
+  }
+
+  .mobile-panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.42rem;
+    min-width: 0;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+  }
+
+  .mobile-sample-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .mobile-panel-header .sample-control {
+    display: flex;
+    width: 100%;
+    max-width: none;
+  }
+
+  .mobile-panel-header .sample-control label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .mobile-panel-header .sample-control select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 2.55rem;
+    padding: 0.42rem 0.52rem;
+  }
+
+  .mobile-panel-toggle {
+    width: 2.55rem;
+    height: 2.55rem;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--control-border);
+    border-radius: 0.55rem;
+    color: var(--ink-0);
+    background: var(--surface-elevated);
+    cursor: pointer;
+  }
+
+  .mobile-panel-toggle svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 180ms ease;
+    transform: rotate(180deg);
+  }
+
+  .panels[data-mobile-expanded="true"] .mobile-panel-toggle svg {
+    transform: rotate(0deg);
   }
 
   .panel {
+    flex: 0 0 auto;
     min-height: 6.5rem;
   }
 
@@ -1294,11 +1379,7 @@ body {
     height: 1.65rem;
   }
 
-  .workspace-body {
-    grid-template-rows: minmax(0, 1fr) minmax(5.8rem, 21dvh);
-  }
-
-  .toolbar {
+  .panels {
     left: max(0.38rem, env(safe-area-inset-left));
     right: max(0.38rem, env(safe-area-inset-right));
     bottom: max(0.38rem, env(safe-area-inset-bottom));

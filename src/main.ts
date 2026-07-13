@@ -555,6 +555,83 @@ const editor = monaco.editor.create(editorHostEl, {
   }
 });
 
+const mobileEditorQuery = window.matchMedia("(max-width: 760px)");
+let mobileLintHoverTimer: number | null = null;
+let mobileLintHoverKey = "";
+
+function errorMarkerAtPosition(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position
+): monaco.editor.IMarker | null {
+  const markers = monaco.editor.getModelMarkers({ owner: MARKER_OWNER, resource: model.uri });
+  return markers.find((marker) => {
+    if (marker.severity !== monaco.MarkerSeverity.Error) {
+      return false;
+    }
+    return new monaco.Range(
+      marker.startLineNumber,
+      marker.startColumn,
+      marker.endLineNumber,
+      marker.endColumn
+    ).containsPosition(position);
+  }) ?? null;
+}
+
+function scheduleMobileLintHover(position: monaco.Position | null): void {
+  if (mobileLintHoverTimer !== null) {
+    window.clearTimeout(mobileLintHoverTimer);
+    mobileLintHoverTimer = null;
+  }
+  if (!mobileEditorQuery.matches || !position) {
+    mobileLintHoverKey = "";
+    return;
+  }
+
+  const model = editor.getModel();
+  const marker = model ? errorMarkerAtPosition(model, position) : null;
+  if (!model || !marker) {
+    mobileLintHoverKey = "";
+    return;
+  }
+
+  const hoverKey = [
+    model.uri.toString(),
+    marker.startLineNumber,
+    marker.startColumn,
+    marker.endLineNumber,
+    marker.endColumn,
+    marker.message
+  ].join(":");
+  if (hoverKey === mobileLintHoverKey) {
+    return;
+  }
+  mobileLintHoverKey = hoverKey;
+  mobileLintHoverTimer = window.setTimeout(() => {
+    mobileLintHoverTimer = null;
+    const currentModel = editor.getModel();
+    const currentPosition = editor.getPosition();
+    if (!currentModel || !currentPosition || !errorMarkerAtPosition(currentModel, currentPosition)) {
+      mobileLintHoverKey = "";
+      return;
+    }
+    editor.trigger("mobile-lint-cursor", "editor.action.showHover", {});
+  }, 120);
+}
+
+function setLintMarkers(
+  model: monaco.editor.ITextModel,
+  markers: monaco.editor.IMarkerData[]
+): void {
+  monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
+  if (editor.getModel() === model) {
+    scheduleMobileLintHover(editor.getPosition());
+  }
+}
+
+editor.onDidChangeCursorPosition(({ position }) => {
+  scheduleMobileLintHover(position);
+});
+
 function refreshEditorGeometry(): void {
   monaco.editor.remeasureFonts();
   editor.layout();
@@ -1136,7 +1213,7 @@ function loadEditorSource(flavor: SourceFlavor, source: string): void {
   activateFlavor(flavor);
   const model = models[flavor];
   model.setValue(source);
-  monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
+  setLintMarkers(model, []);
   renderDiagnosticsList(diagnosticsPanelEl, []);
   setRunPanel(outputPanelEl, stackPanelEl, [], []);
   applyInactiveRunState();
@@ -1257,7 +1334,7 @@ function applyDebugReport(report: DebugReport, options: ApplyDebugReportOptions 
 
   const model = activeModel();
   const markers = report.diagnostics.map((item) => markerFromDiagnostic(item, model));
-  monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
+  setLintMarkers(model, markers);
   renderDiagnosticsList(diagnosticsPanelEl, report.diagnostics);
 
   const lintSummary = summarizeLintDiagnostics(report.diagnostics);
@@ -1323,7 +1400,7 @@ function applyInactiveRunState(): void {
 function applyRunReport(report: RunReport): void {
   const model = activeModel();
   const markers = report.diagnostics.map((item) => markerFromDiagnostic(item, model));
-  monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
+  setLintMarkers(model, markers);
   renderDiagnosticsList(diagnosticsPanelEl, report.diagnostics);
   setRunPanel(outputPanelEl, stackPanelEl, report.output, report.stack);
 
@@ -1418,7 +1495,7 @@ async function runLintNow(): Promise<void> {
 
     const model = activeModel();
     const markers = report.diagnostics.map((item) => markerFromDiagnostic(item, model));
-    monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
+    setLintMarkers(model, markers);
     renderDiagnosticsList(diagnosticsPanelEl, report.diagnostics);
     const lintSummary = summarizeLintDiagnostics(report.diagnostics);
     setStatus(lintStatusEl, lintSummary.text, lintSummary.className);
@@ -1428,7 +1505,7 @@ async function runLintNow(): Promise<void> {
     }
     const message = error instanceof Error ? error.message : "lint failed";
     const model = activeModel();
-    monaco.editor.setModelMarkers(model, MARKER_OWNER, [
+    setLintMarkers(model, [
       {
         severity: monaco.MarkerSeverity.Warning,
         message,
