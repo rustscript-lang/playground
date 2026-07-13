@@ -534,6 +534,10 @@ const lineBreakpointsByFlavor: Record<SourceFlavor, Set<number>> = {
   scheme: new Set<number>()
 };
 
+const mobileEditorQuery = window.matchMedia("(max-width: 760px)");
+const desktopEditorFontSize = 13;
+const mobileEditorFontSize = 16;
+
 const editor = monaco.editor.create(editorHostEl, {
   model: models[initialFlavor],
   theme: monacoThemeName(initialResolvedTheme),
@@ -545,7 +549,7 @@ const editor = monaco.editor.create(editorHostEl, {
   glyphMargin: true,
   lineDecorationsWidth: 20,
   fontFamily: "\"IBM Plex Mono\", monospace",
-  fontSize: 13,
+  fontSize: mobileEditorQuery.matches ? mobileEditorFontSize : desktopEditorFontSize,
   lineNumbersMinChars: 3,
   renderLineHighlight: "none",
   hover: {
@@ -555,7 +559,12 @@ const editor = monaco.editor.create(editorHostEl, {
   }
 });
 
-const mobileEditorQuery = window.matchMedia("(max-width: 760px)");
+mobileEditorQuery.addEventListener("change", ({ matches }) => {
+  editor.updateOptions({
+    fontSize: matches ? mobileEditorFontSize : desktopEditorFontSize
+  });
+});
+
 let mobileLintHoverTimer: number | null = null;
 let mobileLintHoverKey = "";
 

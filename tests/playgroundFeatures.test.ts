@@ -28,6 +28,16 @@ describe("playground editor integrations", () => {
     expect(styleSource).toContain('height: 33.333dvh;');
   });
 
+  test("uses a 16px editor font on mobile to avoid WebKit focus zoom", () => {
+    expect(mainSource).toContain("const mobileEditorFontSize = 16;");
+    expect(mainSource).toContain(
+      "fontSize: mobileEditorQuery.matches ? mobileEditorFontSize : desktopEditorFontSize"
+    );
+    expect(mainSource).toContain('mobileEditorQuery.addEventListener("change"');
+    expect(styleSource).toContain(".monaco-editor .ime-text-area");
+    expect(styleSource).toContain("font-size: 16px !important;");
+  });
+
   test("shows the standard lint hover when the mobile cursor enters an error span", () => {
     expect(mainSource).toContain('editor.onDidChangeCursorPosition');
     expect(mainSource).toContain('marker.severity !== monaco.MarkerSeverity.Error');
