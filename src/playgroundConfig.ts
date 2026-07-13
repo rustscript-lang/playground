@@ -14,6 +14,7 @@ export const THEME_STORAGE_KEY = "pd-vm-webui-theme";
 export const FLAVOR_STORAGE_KEY = "pd-vm-webui-flavor";
 export const SOURCE_STORAGE_KEY_PREFIX = "pd-vm-webui-source:";
 const VIEWPORT_HEIGHT_CSS_VAR = "--pd-app-height";
+const VIEWPORT_OFFSET_TOP_CSS_VAR = "--pd-app-offset-top";
 
 export const RUN_POLL_INTERVAL_MS = 25;
 export const EPOCH_TICK_INTERVAL_MS = 1;
@@ -192,8 +193,13 @@ export function applyDocumentTheme(theme: ResolvedTheme): void {
 export function updateViewportHeightCssVar(): void {
   const viewport = window.visualViewport;
   const height = viewport?.height ?? window.innerHeight;
+  const offsetTop = viewport?.offsetTop ?? 0;
   document.documentElement.style.setProperty(
     VIEWPORT_HEIGHT_CSS_VAR,
     `${Math.round(height)}px`
+  );
+  document.documentElement.style.setProperty(
+    VIEWPORT_OFFSET_TOP_CSS_VAR,
+    `${Math.round(offsetTop)}px`
   );
 }

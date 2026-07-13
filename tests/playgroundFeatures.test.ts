@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 const mainSource = await Bun.file(new URL("../src/main.ts", import.meta.url)).text();
+const configSource = await Bun.file(new URL("../src/playgroundConfig.ts", import.meta.url)).text();
 const shellSource = await Bun.file(new URL("../src/playgroundShell.ts", import.meta.url)).text();
 const styleSource = await Bun.file(new URL("../src/style.css", import.meta.url)).text();
 
@@ -36,6 +37,18 @@ describe("playground editor integrations", () => {
     expect(mainSource).toContain('mobileEditorQuery.addEventListener("change"');
     expect(styleSource).toContain(".monaco-editor .ime-text-area");
     expect(styleSource).toContain("font-size: 16px !important;");
+  });
+
+  test("keeps the mobile app aligned with the visual viewport during keyboard panning", () => {
+    expect(configSource).toContain("const offsetTop = viewport?.offsetTop ?? 0;");
+    expect(configSource).toContain("VIEWPORT_OFFSET_TOP_CSS_VAR");
+    expect(styleSource).toContain("transform: translateY(var(--pd-app-offset-top));");
+    expect(mainSource).toContain(
+      'window.visualViewport?.addEventListener("scroll", updateViewportHeightCssVar);'
+    );
+    expect(mainSource).not.toContain(
+      'window.visualViewport?.addEventListener("scroll", refreshViewportLayout);'
+    );
   });
 
   test("shows the standard lint hover when the mobile cursor enters an error span", () => {

@@ -663,7 +663,7 @@ if (typeof document !== "undefined" && "fonts" in document) {
 
 window.addEventListener("resize", refreshViewportLayout);
 window.visualViewport?.addEventListener("resize", refreshViewportLayout);
-window.visualViewport?.addEventListener("scroll", refreshViewportLayout);
+window.visualViewport?.addEventListener("scroll", updateViewportHeightCssVar);
 
 let currentFlavor: SourceFlavor = initialFlavor;
 let interruptMode: InterruptModeChoice = initialInterruptMode;
