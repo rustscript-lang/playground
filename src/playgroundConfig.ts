@@ -1,4 +1,5 @@
 import complexExampleSource from "./examples/rss-complex-example.rss?raw";
+import callableValuesExampleSource from "./examples/rss-callable-values-example.rss?raw";
 import ifftExampleSource from "./examples/rss-ifft-example.rss?raw";
 import collectionsIterExampleSource from "./examples/rss-collections-iter-example.rss?raw";
 import lruCacheExampleSource from "./examples/rss-lrucache-example.rss?raw";
@@ -29,6 +30,7 @@ export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 export type RssProgramKey =
   | "complex"
+  | "callable_values"
   | "ifft"
   | "lrucache"
   | "collections_iter"
@@ -68,6 +70,13 @@ export const RSS_PROGRAM_OPTIONS: RssProgramOption[] = [
     label: "Demo",
     description: "Default playground demo with closures, structs, option matching, JSON, regex, and runtime host calls.",
     source: complexExampleSource.trim()
+  },
+  {
+    key: "callable_values",
+    label: "Callable Values",
+    description:
+      "Exercises named functions, closures, capture modes, recursion, containers, identity, builtins, generics, and contextual inference.",
+    source: callableValuesExampleSource.trim()
   },
   {
     key: "ifft",

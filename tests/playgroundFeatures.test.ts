@@ -4,8 +4,36 @@ const mainSource = await Bun.file(new URL("../src/main.ts", import.meta.url)).te
 const configSource = await Bun.file(new URL("../src/playgroundConfig.ts", import.meta.url)).text();
 const shellSource = await Bun.file(new URL("../src/playgroundShell.ts", import.meta.url)).text();
 const styleSource = await Bun.file(new URL("../src/style.css", import.meta.url)).text();
+const callableValuesSource = await Bun.file(
+  new URL("../src/examples/rss-callable-values-example.rss", import.meta.url)
+).text();
 
 describe("playground editor integrations", () => {
+  test("registers a comprehensive callable values example", () => {
+    expect(configSource).toContain('key: "callable_values"');
+    expect(configSource).toContain('label: "Callable Values"');
+    for (const marker of [
+      "let named = add_one;",
+      "let returned_function = get_adder();",
+      "let typed_closure: fn(int) -> int",
+      "copied.copy()",
+      "&borrowed",
+      "&mut mut_shared",
+      "fn make_adder(delta: int)",
+      "fn make_counter()",
+      "recursive_closure(value - 1)",
+      "let callable_array = [add_one, add_two];",
+      "let callable_map = {mapper: add_two};",
+      "first_closure != second_closure",
+      "let length = len;",
+      "fn identity<T>(value: T) -> T",
+      "let string_identity: fn(string) -> string = identity;",
+      "fn apply<T>(mapper: fn(T) -> T, value: T) -> T"
+    ]) {
+      expect(callableValuesSource).toContain(marker);
+    }
+  });
+
   test("loads the Monaco hover contribution when using the slim editor API", () => {
     expect(mainSource).toContain('from "monaco-editor/esm/vs/editor/editor.api"');
     expect(mainSource).toContain(
