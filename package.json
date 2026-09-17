@@ -8,7 +8,8 @@
     "build:wasm-playground": "bun ./scripts/build-wasm-playground.mjs",
     "dev": "bun ./scripts/build-wasm-playground.mjs && vite",
     "build": "bun ./scripts/build-wasm-playground.mjs && tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "bun test"
   },
   "dependencies": {
     "monaco-editor": "^0.55.1"

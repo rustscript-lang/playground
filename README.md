@@ -26,15 +26,15 @@ https://rustscript-lang.github.io/playground/
 The web app expects a sibling RustScript checkout by default:
 
 ```bash
-cd /home/wow/rustscript/playground
-bun install
+bun install --frozen-lockfile
 bun run dev
 ```
 
-Set `RUSTSCRIPT_REPO=/path/to/rustscript` if the checkout is elsewhere.
+Set `RUSTSCRIPT_REPO=/path/to/rustscript` if the checkout is elsewhere. The wasm build verifies that checkout against `scripts/rustscript-core-revision`. Set `RUSTSCRIPT_CORE_REV` to the same SHA to double-check the pin in CI. `CARGO_TARGET_DIR` is honored when set and otherwise defaults to `<rustscript>/target`.
 
 Useful commands:
 
 - `bun run dev` — rebuilds the wasm playground runtime and starts Vite
 - `bun run build` — rebuilds wasm, type-checks, and produces `dist/`
+- `bun test` — build-script contract, five-example corpus, and wasm runtime checks
 - `bun run preview` — serves the built bundle locally
