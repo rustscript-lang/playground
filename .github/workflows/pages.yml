@@ -20,10 +20,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: app
+      - name: Read pinned RustScript revision
+        id: rustscript_rev
+        run: |
+          rev="$(tr -d '[:space:]' < app/scripts/rustscript-core-revision)"
+          echo "rev=${rev}" >> "$GITHUB_OUTPUT"
       - name: Checkout RustScript
         uses: actions/checkout@v4
         with:
           repository: rustscript-lang/rustscript
+          ref: ${{ steps.rustscript_rev.outputs.rev }}
           path: rustscript
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -36,11 +42,21 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
         working-directory: app
-      - name: Build
-        run: bun run build
+      - name: Build playground wasm
+        run: bun run build:wasm-playground
         working-directory: app
         env:
           RUSTSCRIPT_REPO: ${{ github.workspace }}/rustscript
+          RUSTSCRIPT_CORE_REV: ${{ steps.rustscript_rev.outputs.rev }}
+      - name: Test
+        run: bun test
+        working-directory: app
+      - name: Typecheck
+        run: bunx tsc --noEmit
+        working-directory: app
+      - name: Vite production build
+        run: bunx vite build
+        working-directory: app
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:

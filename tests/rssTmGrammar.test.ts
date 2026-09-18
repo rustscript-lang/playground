@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import grammar from "../src/monaco/rss.tmLanguage.json";
-import controllerGrammar from "../../../pd-controller/webui/src/app/monaco/rss.tmLanguage.json";
-import extensionGrammar from "../../../.vscode/rss-language-extension/syntaxes/rss.tmLanguage.json";
 
 type GrammarPattern = {
   begin?: string;
@@ -99,8 +99,17 @@ describe("RustScript TextMate grammar", () => {
     expect(functionIncludes).toContain("#generic-type-arguments");
   });
 
-  test("keeps synced grammar copies aligned", () => {
-    expect(extensionGrammar).toEqual(grammar);
-    expect(controllerGrammar).toEqual(grammar);
+  test("keeps synced grammar copies aligned when sibling copies exist", async () => {
+    const siblings = [
+      "../../../pd-controller/webui/src/app/monaco/rss.tmLanguage.json",
+      "../../../.vscode/rss-language-extension/syntaxes/rss.tmLanguage.json"
+    ];
+    for (const relativePath of siblings) {
+      const path = fileURLToPath(new URL(relativePath, import.meta.url));
+      if (!existsSync(path)) {
+        continue;
+      }
+      expect(await Bun.file(path).json()).toEqual(grammar);
+    }
   });
 });

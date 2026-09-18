@@ -170,9 +170,55 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8");
 let wasmPromise: Promise<WasmRuntimeExports> | null = null;
 
+const PLAYGROUND_NOW_MS_MODULE = "env";
+const PLAYGROUND_NOW_MS_NAME = "pd_playground_now_ms";
+
 function wasmPath(): string {
-  const base = import.meta.env.BASE_URL ?? "/";
+  const base = import.meta.env?.BASE_URL ?? "/";
   return `${base.replace(/\/+$/, "/")}wasm/pd_vm_wasm.wasm`;
+}
+
+function playgroundNowMs(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+export function collectUnsupportedWasmImports(
+  wasmModule: WebAssembly.Module
+): Array<{ module: string; name: string }> {
+  return WebAssembly.Module.imports(wasmModule).filter(
+    (item) => item.module !== PLAYGROUND_NOW_MS_MODULE || item.name !== PLAYGROUND_NOW_MS_NAME
+  );
+}
+
+function assertPlaygroundWasmExports(
+  exports: Partial<WasmRuntimeExports>
+): asserts exports is WasmRuntimeExports {
+  if (
+    !exports.memory ||
+    typeof exports.wasm_alloc !== "function" ||
+    typeof exports.wasm_dealloc !== "function" ||
+    typeof exports.lint_source_json !== "function" ||
+    typeof exports.run_source_json !== "function"
+  ) {
+    throw new Error("invalid playground wasm exports");
+  }
+}
+
+async function instantiatePlaygroundWasm(bytes: BufferSource): Promise<WasmRuntimeExports> {
+  const wasmModule = await WebAssembly.compile(bytes);
+  const unsupported = collectUnsupportedWasmImports(wasmModule);
+  if (unsupported.length > 0) {
+    const rendered = unsupported.map((item) => `${item.module}.${item.name}`).join(", ");
+    throw new Error(`unsupported playground wasm import(s): ${rendered}`);
+  }
+  const instance = await WebAssembly.instantiate(wasmModule, {
+    env: {
+      pd_playground_now_ms: playgroundNowMs
+    }
+  });
+  const exports = instance.exports as Partial<WasmRuntimeExports>;
+  assertPlaygroundWasmExports(exports);
+  return exports;
 }
 
 function writeBytes(wasm: WasmRuntimeExports, bytes: Uint8Array): number {
@@ -439,8 +485,12 @@ function normalizeFuelState(raw: unknown): FuelState {
 }
 
 function normalizeCompletionKind(raw: unknown): CompletionEntryKind {
-  if (raw === "function" || raw === "module" || raw === "snippet") {
-    return raw;
+  if (typeof raw !== "string") {
+    return "snippet";
+  }
+  const kind = raw.trim().toLowerCase();
+  if (kind === "function" || kind === "module" || kind === "snippet") {
+    return kind;
   }
   return "snippet";
 }
@@ -537,6 +587,15 @@ function normalizeLocalTypeHints(raw: unknown): LocalTypeHint[] {
   return hints;
 }
 
+export function resetPlaygroundWasmForTests(): void {
+  wasmPromise = null;
+}
+
+export async function installPlaygroundWasmFromBytes(bytes: BufferSource): Promise<void> {
+  wasmPromise = instantiatePlaygroundWasm(bytes);
+  await wasmPromise;
+}
+
 async function loadWasm(): Promise<WasmRuntimeExports> {
   if (!wasmPromise) {
     wasmPromise = (async () => {
@@ -545,22 +604,7 @@ async function loadWasm(): Promise<WasmRuntimeExports> {
         throw new Error(`failed to fetch playground wasm (${response.status})`);
       }
       const bytes = await response.arrayBuffer();
-      const { instance } = await WebAssembly.instantiate(bytes, {
-        env: {
-          pd_playground_now_ms: () => globalThis.performance?.now?.() ?? Date.now()
-        }
-      });
-      const exports = instance.exports as Partial<WasmRuntimeExports>;
-      if (
-        !exports.memory ||
-        typeof exports.wasm_alloc !== "function" ||
-        typeof exports.wasm_dealloc !== "function" ||
-        typeof exports.lint_source_json !== "function" ||
-        typeof exports.run_source_json !== "function"
-      ) {
-        throw new Error("invalid playground wasm exports");
-      }
-      return exports as WasmRuntimeExports;
+      return instantiatePlaygroundWasm(bytes);
     })();
   }
   return wasmPromise;
