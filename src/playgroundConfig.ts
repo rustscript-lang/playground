@@ -1,4 +1,6 @@
 import complexExampleSource from "./examples/rss-complex-example.rss?raw";
+import optionResultExampleSource from "./examples/rss-option-result-example.rss?raw";
+import callableValuesExampleSource from "./examples/rss-callable-values-example.rss?raw";
 import ifftExampleSource from "./examples/rss-ifft-example.rss?raw";
 import collectionsIterExampleSource from "./examples/rss-collections-iter-example.rss?raw";
 import lruCacheExampleSource from "./examples/rss-lrucache-example.rss?raw";
@@ -29,6 +31,8 @@ export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 export type RssProgramKey =
   | "complex"
+  | "option_result"
+  | "callable_values"
   | "ifft"
   | "lrucache"
   | "collections_iter"
@@ -68,6 +72,20 @@ export const RSS_PROGRAM_OPTIONS: RssProgramOption[] = [
     label: "Demo",
     description: "Default playground demo with closures, structs, option matching, JSON, regex, and runtime host calls.",
     source: complexExampleSource.trim()
+  },
+  {
+    key: "option_result",
+    label: "Unit / Option / Result",
+    description:
+      "Exercises the Unit literal, Option and Result constructors, combinators, the ? propagation operator, and ?. optional access.",
+    source: optionResultExampleSource.trim()
+  },
+  {
+    key: "callable_values",
+    label: "Callable Values",
+    description:
+      "Treats named functions and closures as first-class values with captures, higher-order calls, and generic callable inference.",
+    source: callableValuesExampleSource.trim()
   },
   {
     key: "ifft",

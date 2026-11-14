@@ -36,5 +36,5 @@ Useful commands:
 
 - `bun run dev` — rebuilds the wasm playground runtime and starts Vite
 - `bun run build` — rebuilds wasm, type-checks, and produces `dist/`
-- `bun test` — build-script contract, five-example corpus, and wasm runtime checks
+- `bun test` — build-script contract, seven-example corpus, and wasm runtime checks
 - `bun run preview` — serves the built bundle locally

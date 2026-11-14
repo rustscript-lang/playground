@@ -10,7 +10,7 @@ import {
 } from "./rssExampleCorpus";
 
 describe("checked-in RSS playground corpus", () => {
-  test("enumerates exactly five RSS example files", () => {
+  test("enumerates exactly seven RSS example files", () => {
     const files = listCheckedInRssExamples();
     expect(files).toHaveLength(EXPECTED_RSS_EXAMPLE_COUNT);
     expect(files).toEqual([...EXPECTED_RSS_EXAMPLE_FILES]);
@@ -30,9 +30,16 @@ describe("checked-in RSS playground corpus", () => {
       expect(configSource).toContain(`./examples/${fileName}?raw`);
     }
 
-    const optionKeys = [...configSource.matchAll(/key: "(complex|ifft|lrucache|collections_iter|strings_regex)"/g)].map(
-      (match) => match[1]
+    const registeredKeys = [...configSource.matchAll(/^ {4}key: "([a-z_]+)",$/gm)].map(
+      (match) => match[1]!
     );
-    expect(optionKeys).toHaveLength(EXPECTED_RSS_EXAMPLE_COUNT);
+    const expectedKeys = EXPECTED_RSS_EXAMPLE_FILES.map((fileName) =>
+      programKeyForRssExample(fileName)
+    );
+    expect(registeredKeys).toHaveLength(EXPECTED_RSS_EXAMPLE_COUNT);
+    expect(new Set(registeredKeys)).toEqual(new Set(expectedKeys));
+    expect(registeredKeys[0]).toBe("complex");
+    expect(registeredKeys).toContain("option_result");
+    expect(registeredKeys).toContain("callable_values");
   });
 });

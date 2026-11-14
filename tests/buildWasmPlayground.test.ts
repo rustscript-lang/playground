@@ -14,7 +14,7 @@ import {
   WASM_TARGET
 } from "../scripts/build-wasm-playground.mjs";
 
-const PINNED = "b1d6cffede77f49410bf63525f30b9a46b02dc01";
+const PINNED = "fc8b0c8179640a8ffe460a64b3690e35c2f7eb73";
 const OTHER = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REPO_ROOT = resolve(import.meta.dir, "..");
 
