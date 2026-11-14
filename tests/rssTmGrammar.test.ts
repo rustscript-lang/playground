@@ -8,13 +8,13 @@ type GrammarPattern = {
   begin?: string;
   include?: string;
   match?: string;
+  name?: string;
   patterns?: GrammarPattern[];
+  captures?: Record<string, { name: string }>;
 };
 
-type GrammarSection = {
-  begin?: string;
+type GrammarSection = GrammarPattern & {
   end?: string;
-  patterns?: GrammarPattern[];
 };
 
 type Grammar = {
@@ -30,9 +30,9 @@ function repoSection(name: string): GrammarSection {
   return section;
 }
 
-function repoPattern(name: string, index = 0): GrammarPattern {
+function repoPattern(name: string, index = 0): GrammarSection {
   const section = repoSection(name);
-  if (!section?.patterns?.[index]) {
+  if (!section.patterns?.[index]) {
     throw new Error(`missing grammar pattern ${name}[${index}]`);
   }
   return section.patterns[index];
@@ -97,6 +97,73 @@ describe("RustScript TextMate grammar", () => {
     expect(structIncludes).toContain("#generic-type-arguments");
     expect(pubFunctionIncludes).toContain("#generic-type-arguments");
     expect(functionIncludes).toContain("#generic-type-arguments");
+  });
+
+  test("highlights the Unit literal and no longer highlights a null keyword", () => {
+    const rootIncludes = ((grammar as Grammar).patterns ?? [])
+      .map((pattern) => pattern.include)
+      .filter((value): value is string => typeof value === "string");
+    const repository = (grammar as Grammar).repository ?? {};
+
+    expect(rootIncludes).toContain("#unit-literal");
+    expect(rootIncludes).not.toContain("#null-literal");
+    expect(repository).not.toHaveProperty("null-literal");
+
+    const unitLiteral = repoSection("unit-literal");
+    expect(unitLiteral.name).toBe("constant.language.unit.rss");
+
+    const unitPattern = new RegExp(unitLiteral.match ?? "");
+    expect(unitPattern.test("let unit:() = ();")).toBe(true);
+    expect(unitPattern.test("let unit_from_fn:() = nothing();")).toBe(true);
+    expect(unitPattern.test("nothing()")).toBe(false);
+    expect(unitPattern.test("print(1)")).toBe(false);
+
+    expect(JSON.stringify(grammar)).not.toContain("constant.language.null");
+    expect(repository["null-literal"]).toBeUndefined();
+  });
+
+  test("scopes Option and Result constructors as typed constructors", () => {
+    const constructor = repoSection("option-result-constructor");
+    const pattern = new RegExp(constructor.match ?? "");
+
+    expect(constructor.name).toBe("meta.constructor.rss");
+    expect(constructor.captures?.["1"]).toEqual({ name: "support.type.rss" });
+    expect(constructor.captures?.["3"]).toEqual({ name: "punctuation.accessor.rss" });
+    expect(constructor.captures?.["5"]).toEqual({ name: "support.constant.constructor.rss" });
+
+    const some = pattern.exec("Option::Some(0)");
+    expect(some?.[1]).toBe("Option");
+    expect(some?.[3]).toBe("::");
+    expect(some?.[5]).toBe("Some");
+
+    expect(pattern.exec("let empty: Option<int> = Option::None;")?.[5]).toBe("None");
+    expect(pattern.exec("Result::Ok(7)")?.[1]).toBe("Result");
+    expect(pattern.exec("Result::Ok(7)")?.[5]).toBe("Ok");
+    expect(pattern.exec("Result::Err(\"bad\")")?.[5]).toBe("Err");
+
+    expect(pattern.test("Optional::Some(1)")).toBe(false);
+    expect(pattern.test("Option::Missing(1)")).toBe(false);
+  });
+
+  test("separates ? propagation from ?. optional access", () => {
+    const operators = repoSection("operators");
+    const propagation = repoSection("propagation-operator");
+    const optionalAccess = repoSection("optional-access-operator");
+
+    expect(operators.match ?? "").not.toContain("\\?");
+
+    expect(propagation.name).toBe("keyword.operator.propagation.rss");
+    expect(optionalAccess.name).toBe("keyword.operator.optional-access.rss");
+
+    const propagationPattern = new RegExp(propagation.match ?? "");
+    expect(propagationPattern.test("let item = value?;")).toBe(true);
+    expect(propagationPattern.test("let number = checked(flag)?;")).toBe(true);
+    expect(propagationPattern.test("record?.name")).toBe(false);
+
+    const optionalAccessPattern = new RegExp(optionalAccess.match ?? "");
+    expect(optionalAccessPattern.test("match record?.name")).toBe(true);
+    expect(optionalAccessPattern.test("table?.[\"b\"]")).toBe(true);
+    expect(optionalAccessPattern.test("let item = value?;")).toBe(false);
   });
 
   test("keeps synced grammar copies aligned when sibling copies exist", async () => {

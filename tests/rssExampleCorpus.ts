@@ -1,13 +1,15 @@
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-export const EXPECTED_RSS_EXAMPLE_COUNT = 5;
+export const EXPECTED_RSS_EXAMPLE_COUNT = 7;
 
 export const EXPECTED_RSS_EXAMPLE_FILES = [
+  "rss-callable-values-example.rss",
   "rss-collections-iter-example.rss",
   "rss-complex-example.rss",
   "rss-ifft-example.rss",
   "rss-lrucache-example.rss",
+  "rss-option-result-example.rss",
   "rss-strings-regex-example.rss"
 ] as const;
 
@@ -15,6 +17,8 @@ export type RssExampleFileName = (typeof EXPECTED_RSS_EXAMPLE_FILES)[number];
 
 const FILE_TO_PROGRAM_KEY = {
   "rss-complex-example.rss": "complex",
+  "rss-option-result-example.rss": "option_result",
+  "rss-callable-values-example.rss": "callable_values",
   "rss-ifft-example.rss": "ifft",
   "rss-lrucache-example.rss": "lrucache",
   "rss-collections-iter-example.rss": "collections_iter",
