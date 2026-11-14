@@ -113,9 +113,11 @@ function unitLiteralSource(): string {
 }
 
 /**
- * Core's `member-access` rule accepts both `.` and `?.`. Optional access is tokenized by its
- * own rule that runs first, so this copy keeps only the plain `.` alternative (`?.` is
- * removed from the alternation, which keeps the capture numbering intact).
+ * Core's `member-access` rule accepts both `.` and `?.`. Optional access has its own rules that
+ * must run first, so this copy drops the `?.` alternative and keeps only the plain `.` form.
+ * That makes the copy order-independent: with `?.` retained and this rule moved above the
+ * optional-access rules, `a?.b` would tokenize as punctuation.accessor + variable instead of
+ * optional access. Capture numbering is unchanged by the removal.
  */
 function memberAccessSource(): string {
   const source = sectionPatterns("member-access")[0]?.match ?? FALLBACK_MEMBER_ACCESS;
@@ -172,17 +174,19 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
     [new RegExp(`\\b(use)(\\s+)(${PATH})(\\s+)(as)(\\s+)(${IDENT})\\b`), ["keyword", "", "type.identifier", "", "keyword", "", "identifier"]],
     [new RegExp(`\\b(use)(\\s+)(${PATH})(\\s*)(::)(\\s*)(\\{[^}\\\n]*\\}|\\*)`), ["keyword", "", "type.identifier", "", "delimiter", "", "type.identifier"]],
     [new RegExp(`\\b(use)(\\s+)(${PATH})\\b`), ["keyword", "", "type.identifier"]],
-    // `fn wrap<T>()`: a generic header with an empty parameter list is a declaration, not a
-    // Unit literal, so it is claimed before the Unit rule can see the parentheses.
+    // `fn wrap<T>()` / `pub fn wrap<T> ()`: a generic header whose parameter list is empty is a
+    // declaration, so the head is claimed in one rule and the `()` becomes the signature's
+    // delimiter instead of a Unit literal. Grouped actions cannot switch state, which is what we
+    // want here: the line stays in `root`, so the body brace that follows is tokenized normally.
+    // Both rules keep one action per capture group (9/9 and 7/7) — Monarch's lexer throws
+    // `matched number of groups does not match the number of actions` otherwise.
     [
-      new RegExp(`\\b(pub)(\\s+)(fn)(\\s+)(${IDENT})(\\s*)(${GENERIC_BLOCK})(\\s*)${unitLiteral}`),
-      ["keyword", "", "keyword", "", "function", "", "type.identifier", "", "delimiter"],
-      "@afterFunctionName"
+      new RegExp(`\\b(pub)(\\s+)(fn)(\\s+)(${IDENT})(\\s*)(${GENERIC_BLOCK})(\\s*)(${unitLiteral})`),
+      ["keyword", "", "keyword", "", "function", "", "type.identifier", "", "delimiter"]
     ],
     [
-      new RegExp(`\\b(fn)(\\s+)(${IDENT})(\\s*)(${GENERIC_BLOCK})(\\s*)${unitLiteral}`),
-      ["keyword", "", "function", "", "type.identifier", "", "delimiter"],
-      "@afterFunctionName"
+      new RegExp(`\\b(fn)(\\s+)(${IDENT})(\\s*)(${GENERIC_BLOCK})(\\s*)(${unitLiteral})`),
+      ["keyword", "", "function", "", "type.identifier", "", "delimiter"]
     ],
     [
       new RegExp(`\\b(pub)(\\s+)(fn)(\\s+)(${IDENT})\\b${emptyCallTail}`),
@@ -199,8 +203,10 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
     [new RegExp(`\\b(let)(\\s+)(mut)(\\s+)(${IDENT})\\b`), ["keyword", "", "keyword", "", "identifier"]],
     [new RegExp(`\\b(let)(\\s+)(${IDENT})\\b`), ["keyword", "", "identifier"]],
     [
-      new RegExp(sectionPatterns("option-result-constructor")[0]?.match ?? FALLBACK_CONSTRUCTOR),
-      ["support.type", "", "punctuation.accessor", "", "support.constant.constructor"]
+      // The constructor swallows its own empty argument list (`Option::Some()`), so the `()` is a
+      // signature delimiter like any other call instead of falling through to the Unit literal.
+      new RegExp(`${sectionPatterns("option-result-constructor")[0]?.match ?? FALLBACK_CONSTRUCTOR}${emptyCallTail}`),
+      ["support.type", "", "punctuation.accessor", "", "support.constant.constructor", "delimiter"]
     ],
     [
       new RegExp(`\\b(${IDENT})(\\s*)(::)(\\s*)(${PATH_CALL})(\\s*)(::)(\\s*)(${GENERIC_BLOCK})(?=\\s*\\()${emptyCallTail}`),
@@ -215,7 +221,9 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
       ["type.identifier", "", "delimiter", "", "function", "delimiter"]
     ],
     [new RegExp(`\\b(println)(\\s*)(!)(?=\\s*\\()`), ["function", "", "operator"]],
-    // `?.` must win over member access, which also matches a bare `.`.
+    // `?.<name>` is claimed here as one optional-access token, so this rule has to come before the
+    // bare optional-access-operator rule below; hoisting the bare `?.` above it loses the variable
+    // token for `a?.b`. The member-access copy further down keeps only plain `.`.
     [
       new RegExp(`(\\?\\.)(\\s*)(${IDENT})${emptyCallTail}`),
       ["keyword.operator.optional-access", "", "variable", "delimiter"]
@@ -223,6 +231,14 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
     [sectionMatch("optional-access-operator", FALLBACK_OPTIONAL_ACCESS), "keyword.operator.optional-access"],
     [new RegExp(`${memberAccessSource()}${emptyCallTail}`), ["punctuation.accessor", "", "variable", "delimiter"]],
     [sectionMatch("propagation-operator", FALLBACK_PROPAGATION), "keyword.operator.propagation"],
+    [
+      // `null` is unscoped in RustScript (Core has no null keyword) and is not callable either:
+      // consuming it here keeps `null()` out of the call rule, so neither `null` nor the `ull`
+      // remainder of it can pick up a function token, and its empty argument list stays a
+      // delimiter instead of a Unit literal.
+      new RegExp(`(\\bnull\\b)${emptyCallTail}`),
+      ["", "delimiter"]
+    ],
     [
       new RegExp(`\\b(?!(?:${RESERVED_WORDS})\\b)(${IDENT})(\\s*)(?=\\()${emptyCallTail}`),
       ["function", "", "delimiter"]

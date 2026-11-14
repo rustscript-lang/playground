@@ -159,13 +159,143 @@ function unitTokensAfterCallee(line: string): TokenSpan[] {
   );
 }
 
+/**
+ * Counts the capturing groups in a compiled Monarch rule, so a rule's action list can be checked
+ * against its pattern without having to guess an input that makes it match. Monarch throws
+ * `matched number of groups does not match the number of actions` when they disagree.
+ */
+function captureGroupCount(source: string): number {
+  let count = 0;
+  let inCharacterClass = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "\\") {
+      index += 1;
+      continue;
+    }
+    if (inCharacterClass) {
+      if (char === "]") {
+        inCharacterClass = false;
+      }
+      continue;
+    }
+    if (char === "[") {
+      inCharacterClass = true;
+      continue;
+    }
+    if (char !== "(") {
+      continue;
+    }
+    if (source[index + 1] !== "?") {
+      count += 1;
+      continue;
+    }
+    // `(?:`, `(?=`, `(?!` are non-capturing; `(?<name>` is.
+    const named = source[index + 2] === "<" && source[index + 3] !== "=" && source[index + 3] !== "!";
+    if (named) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
 describe("RustScript Monarch tokenizer", () => {
+  test("keeps every grouped rule's actions aligned with its capture groups", () => {
+    const mismatches: string[] = [];
+    const groupedRules: CompiledRule[] = [];
+
+    for (const [state, rules] of Object.entries(lexer.tokenizer)) {
+      for (const rule of rules) {
+        const group = groupOf(rule.action);
+        if (!group) {
+          continue;
+        }
+        groupedRules.push(rule);
+        const source = rule.resolveRegex(state).source;
+        const captures = captureGroupCount(source);
+        if (captures !== group.length) {
+          mismatches.push(`${state}: ${group.length} actions for ${captures} capture groups in ${source}`);
+        }
+      }
+    }
+
+    expect(groupedRules.length).toBeGreaterThan(0);
+    expect(mismatches).toEqual([]);
+
+    // The two generic empty-parameter headers must stay present *and* aligned (7 and 9 actions).
+    const genericHeadRules = lexer.tokenizer["root"].filter((rule) => {
+      const source = rule.resolveRegex("root").source;
+      return source.includes("(fn)") && source.includes("(\\(\\))");
+    });
+    expect(genericHeadRules.map((rule) => groupOf(rule.action)?.length).sort()).toEqual([7, 9]);
+    for (const rule of genericHeadRules) {
+      expect(captureGroupCount(rule.resolveRegex("root").source)).toBe(groupOf(rule.action)?.length);
+    }
+  });
+
+  test("tokenizes generic fn headers with an empty parameter list", () => {
+    const cases: Array<{ line: string; generic: string; isPublic: boolean }> = [
+      { line: "fn wrap<T>()", generic: "<T>", isPublic: false },
+      { line: "fn wrap<T> ()", generic: "<T>", isPublic: false },
+      { line: "fn wrap<K, V>()", generic: "<K, V>", isPublic: false },
+      { line: "fn wrap<Option<int>>()", generic: "<Option<int>>", isPublic: false },
+      { line: "pub fn wrap<T>()", generic: "<T>", isPublic: true }
+    ];
+
+    for (const { line, generic, isPublic } of cases) {
+      const expected = [
+        ...(isPublic ? [{ token: "keyword", value: "pub" }] : []),
+        { token: "keyword", value: "fn" },
+        { token: "function", value: "wrap" },
+        { token: "type.identifier", value: generic },
+        { token: "delimiter", value: "()" }
+      ];
+      expect({ line, tokens: tokenize(line) }).toEqual({ line, tokens: expected });
+
+      // The `()` belongs to the declaration signature, never to the Unit literal or a call.
+      expect(unitTokens(line)).toEqual([]);
+      expect(tokenize(line).filter((token) => token.token === "function")).toEqual([
+        { token: "function", value: "wrap" }
+      ]);
+
+      // The head is claimed in one rule that stays in `root`, so the body still tokenizes.
+      const withBody = tokenize(`${line} {`);
+      expect(withBody).toEqual([...expected, { token: "delimiter", value: "{" }]);
+    }
+
+    // A parameterized generic head keeps its existing path (fn rule, then the `<`/`(` states).
+    expect(tokenize("fn wrap<T>(value: T) {")).toContainEqual({ token: "function", value: "wrap" });
+  });
+
   test("does not scope null as a keyword or a function", () => {
-    for (const line of ["let a = null;", "let fallback = null;", "assert(value == null);"]) {
+    for (const line of [
+      "let a = null;",
+      "let fallback = null;",
+      "assert(value == null);",
+      "assert(null() == null);",
+      "let called = null();"
+    ]) {
       const tokens = tokenize(line).filter((token) => token.value === "null");
       expect(tokens).toEqual([]);
       expect(tokenize(line)).not.toContainEqual({ token: "keyword", value: "null" });
+      expect(tokenize(line)).not.toContainEqual({ token: "function", value: "null" });
     }
+
+    // `null` is consumed whole, so its tail can never be picked up as a callee.
+    const nullCall = tokenize("assert(null());");
+    expect(nullCall.filter((token) => token.token === "function")).toEqual([
+      { token: "function", value: "assert" }
+    ]);
+    expect(nullCall).toEqual([
+      { token: "function", value: "assert" },
+      { token: "delimiter", value: "(" },
+      { token: "delimiter", value: "()" },
+      { token: "delimiter", value: ")" },
+      { token: "delimiter", value: ";" }
+    ]);
+    expect(nullCall).not.toContainEqual({ token: "constant.language.unit", value: "()" });
 
     const keywordNullRules = lexer.tokenizer["root"].filter((rule) => {
       const matches = rule.resolveRegex("root").exec("null");
@@ -231,6 +361,19 @@ describe("RustScript Monarch tokenizer", () => {
       token: "support.constant.constructor",
       value: "Missing"
     });
+
+    // A constructor with an empty payload owns its `()`: a delimiter, not a Unit literal.
+    const emptyPayloads: Array<{ line: string; constructor: string }> = [
+      { line: "let some = Option::Some();", constructor: "Some" },
+      { line: "let ok = Result::Ok();", constructor: "Ok" },
+      { line: "let bad = Result::Err();", constructor: "Err" }
+    ];
+    for (const { line, constructor } of emptyPayloads) {
+      const tokens = tokenize(line);
+      expect(tokens).toContainEqual({ token: "support.constant.constructor", value: constructor });
+      expect(tokens).toContainEqual({ token: "delimiter", value: "()" });
+      expect(unitTokens(line)).toEqual([]);
+    }
   });
 
   test("separates ? propagation from ?. optional access", () => {
@@ -250,6 +393,27 @@ describe("RustScript Monarch tokenizer", () => {
     const optionalIndex = tokenize("let bucket = table?.[\"b\"];");
     expect(optionalIndex).toContainEqual({ token: "keyword.operator.optional-access", value: "?." });
     expect(optionalIndex).not.toContainEqual({ token: "keyword.operator.propagation", value: "?" });
+  });
+
+  test("keeps ?. out of the member-access rule", () => {
+    // Core's member-access pattern also accepts `?.`; the Monaco copy must not, otherwise
+    // `a?.b` highlights as punctuation.accessor + variable and loses its optional-access token.
+    const accessorRules = lexer.tokenizer["root"].filter((rule) =>
+      (groupOf(rule.action) ?? []).some((action) => tokenOf(action) === "punctuation.accessor")
+    );
+    expect(accessorRules.length).toBeGreaterThan(0);
+    for (const rule of accessorRules) {
+      expect(rule.resolveRegex("root").exec("?.name")).toBeNull();
+    }
+
+    expect(tokenize("let a = b?.c;")).toEqual([
+      { token: "keyword", value: "let" },
+      { token: "identifier", value: "a" },
+      { token: "operator", value: "=" },
+      { token: "keyword.operator.optional-access", value: "?." },
+      { token: "variable", value: "c" },
+      { token: "delimiter", value: ";" }
+    ]);
   });
 
   test("keeps member access, declarations and literals intact", () => {
