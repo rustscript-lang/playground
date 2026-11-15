@@ -337,43 +337,31 @@ describe("RustScript Monarch tokenizer", () => {
     expect(unitTokens("let turbofish = apply::<int>(identity, 42);")).toEqual([]);
   });
 
-  test("scopes Option and Result constructors", () => {
-    const cases: Array<{ line: string; owner: string; constructor: string }> = [
-      { line: "let some = Option::Some(0);", owner: "Option", constructor: "Some" },
-      { line: "let none_variant: Option<int> = Option::None;", owner: "Option", constructor: "None" },
-      { line: "let ok = Result::Ok(7);", owner: "Result", constructor: "Ok" },
-      { line: "let bad = Result::Err(\"bad\");", owner: "Result", constructor: "Err" }
+  test("scopes bare Option constructors in expressions and match patterns", () => {
+    const cases = [
+      { line: "let some = Some(1);", constructors: ["Some"] },
+      { line: "let none_variant: Option<int> = None;", constructors: ["None"] },
+      { line: "match value { Some(x) => x, None => 0 }", constructors: ["Some", "None"] }
     ];
+    for (const { line, constructors } of cases) {
+      expect(tokenize(line).filter(({ token }) => token === "support.constant.constructor").map(({ value }) => value))
+        .toEqual(constructors);
+    }
+    for (const line of ["Option::Some(1)", "Option::None", "Option :: Some(1)", "Option :: None", "Optional::Some(1)", "obj.None", "obj.Some(1)"]) {
+      expect(tokenize(line).filter(({ token }) => token === "support.constant.constructor")).toEqual([]);
+    }
+    expect(tokenize("Some()")).toContainEqual({ token: "delimiter", value: "()" });
+    expect(unitTokens("Some()")).toEqual([]);
+  });
 
-    for (const { line, owner, constructor } of cases) {
+  test("keeps Result::Ok and Result::Err constructor scopes", () => {
+    for (const [line, constructor] of [["Result::Ok(7)", "Ok"], ["Result::Err(\"bad\")", "Err"], ["Result::Ok()", "Ok"]]) {
       const tokens = tokenize(line);
-      expect(tokens).toContainEqual({ token: "support.type", value: owner });
+      expect(tokens).toContainEqual({ token: "support.type", value: "Result" });
       expect(tokens).toContainEqual({ token: "punctuation.accessor", value: "::" });
       expect(tokens).toContainEqual({ token: "support.constant.constructor", value: constructor });
-      expect(tokens.filter((token) => token.token === "keyword")).toEqual([{ token: "keyword", value: "let" }]);
     }
-
-    expect(tokenize("let wrong = Optional::Some(1);")).not.toContainEqual({
-      token: "support.constant.constructor",
-      value: "Some"
-    });
-    expect(tokenize("let wrong = Option::Missing(1);")).not.toContainEqual({
-      token: "support.constant.constructor",
-      value: "Missing"
-    });
-
-    // A constructor with an empty payload owns its `()`: a delimiter, not a Unit literal.
-    const emptyPayloads: Array<{ line: string; constructor: string }> = [
-      { line: "let some = Option::Some();", constructor: "Some" },
-      { line: "let ok = Result::Ok();", constructor: "Ok" },
-      { line: "let bad = Result::Err();", constructor: "Err" }
-    ];
-    for (const { line, constructor } of emptyPayloads) {
-      const tokens = tokenize(line);
-      expect(tokens).toContainEqual({ token: "support.constant.constructor", value: constructor });
-      expect(tokens).toContainEqual({ token: "delimiter", value: "()" });
-      expect(unitTokens(line)).toEqual([]);
-    }
+    expect(unitTokens("Result::Ok()")).toEqual([]);
   });
 
   test("separates ? propagation from ?. optional access", () => {

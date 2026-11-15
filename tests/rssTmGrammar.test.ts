@@ -122,27 +122,32 @@ describe("RustScript TextMate grammar", () => {
     expect(repository["null-literal"]).toBeUndefined();
   });
 
-  test("scopes Option and Result constructors as typed constructors", () => {
-    const constructor = repoSection("option-result-constructor");
-    const pattern = new RegExp(constructor.match ?? "");
+  test("scopes bare Option constructors and retains namespaced Result constructors", () => {
+    const option = repoPattern("option-result-constructor", 0);
+    const result = repoPattern("option-result-constructor", 1);
+    const optionPattern = new RegExp(option.match ?? "");
+    const resultPattern = new RegExp(result.match ?? "");
 
-    expect(constructor.name).toBe("meta.constructor.rss");
-    expect(constructor.captures?.["1"]).toEqual({ name: "support.type.rss" });
-    expect(constructor.captures?.["3"]).toEqual({ name: "punctuation.accessor.rss" });
-    expect(constructor.captures?.["5"]).toEqual({ name: "support.constant.constructor.rss" });
+    expect(option.name).toBe("meta.constructor.rss");
+    expect(option.captures?.["1"]).toEqual({ name: "support.constant.constructor.rss" });
+    for (const line of ["Some(1)", "let value: Option<int> = None;", "match value { Some(x) => x, None => 0 }"]) {
+      expect(optionPattern.test(line)).toBe(true);
+    }
+    expect(optionPattern.exec("Some(1)")?.[1]).toBe("Some");
+    expect(optionPattern.exec("None")?.[1]).toBe("None");
+    expect(Array.from("match value { Some(x) => x, None => 0 }".matchAll(new RegExp(option.match ?? "", "g")), (match) => match[1]))
+      .toEqual(["Some", "None"]);
+    for (const line of ["Option::Some(1)", "Option::None", "obj.Some(1)", "obj.None"]) {
+      expect(optionPattern.test(line)).toBe(false);
+    }
 
-    const some = pattern.exec("Option::Some(0)");
-    expect(some?.[1]).toBe("Option");
-    expect(some?.[3]).toBe("::");
-    expect(some?.[5]).toBe("Some");
-
-    expect(pattern.exec("let empty: Option<int> = Option::None;")?.[5]).toBe("None");
-    expect(pattern.exec("Result::Ok(7)")?.[1]).toBe("Result");
-    expect(pattern.exec("Result::Ok(7)")?.[5]).toBe("Ok");
-    expect(pattern.exec("Result::Err(\"bad\")")?.[5]).toBe("Err");
-
-    expect(pattern.test("Optional::Some(1)")).toBe(false);
-    expect(pattern.test("Option::Missing(1)")).toBe(false);
+    expect(result.name).toBe("meta.constructor.rss");
+    expect(result.captures?.["1"]).toEqual({ name: "support.type.rss" });
+    expect(result.captures?.["3"]).toEqual({ name: "punctuation.accessor.rss" });
+    expect(result.captures?.["5"]).toEqual({ name: "support.constant.constructor.rss" });
+    expect(resultPattern.exec("Result::Ok(7)")?.[5]).toBe("Ok");
+    expect(resultPattern.exec("Result::Err(\"bad\")")?.[5]).toBe("Err");
+    expect(resultPattern.test("Option::Some(1)")).toBe(false);
   });
 
   test("separates ? propagation from ?. optional access", () => {
