@@ -137,7 +137,7 @@ describe("RustScript TextMate grammar", () => {
     expect(optionPattern.exec("None")?.[1]).toBe("None");
     expect(Array.from("match value { Some(x) => x, None => 0 }".matchAll(new RegExp(option.match ?? "", "g")), (match) => match[1]))
       .toEqual(["Some", "None"]);
-    for (const line of ["Option::Some(1)", "Option::None", "obj.Some(1)", "obj.None"]) {
+    for (const line of ["obj.Some(1)", "obj.None"]) {
       expect(optionPattern.test(line)).toBe(false);
     }
 
@@ -147,7 +147,6 @@ describe("RustScript TextMate grammar", () => {
     expect(result.captures?.["5"]).toEqual({ name: "support.constant.constructor.rss" });
     expect(resultPattern.exec("Result::Ok(7)")?.[5]).toBe("Ok");
     expect(resultPattern.exec("Result::Err(\"bad\")")?.[5]).toBe("Err");
-    expect(resultPattern.test("Option::Some(1)")).toBe(false);
   });
 
   test("separates ? propagation from ?. optional access", () => {

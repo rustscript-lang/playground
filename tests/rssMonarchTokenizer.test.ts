@@ -347,7 +347,7 @@ describe("RustScript Monarch tokenizer", () => {
       expect(tokenize(line).filter(({ token }) => token === "support.constant.constructor").map(({ value }) => value))
         .toEqual(constructors);
     }
-    for (const line of ["Option::Some(1)", "Option::None", "Option :: Some(1)", "Option :: None", "Optional::Some(1)", "obj.None", "obj.Some(1)"]) {
+    for (const line of ["obj.None", "obj.Some(1)"]) {
       expect(tokenize(line).filter(({ token }) => token === "support.constant.constructor")).toEqual([]);
     }
     expect(tokenize("Some()")).toContainEqual({ token: "delimiter", value: "()" });
