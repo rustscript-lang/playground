@@ -35,8 +35,8 @@ const FALLBACK_UNIT_LITERAL = "\\(\\)";
 const FALLBACK_OPTIONAL_ACCESS = "\\?\\.";
 const FALLBACK_PROPAGATION = "\\?(?!\\.)";
 const FALLBACK_MEMBER_ACCESS = "\\.(\\s*)([A-Za-z_][A-Za-z0-9_]*)";
-const FALLBACK_CONSTRUCTOR =
-  "\\b((?:Option)(?=\\s*::\\s*(?:Some|None))|(?:Result)(?=\\s*::\\s*(?:Ok|Err)))(\\s*)(::)(\\s*)(Some|None|Ok|Err)\\b";
+const FALLBACK_OPTION_CONSTRUCTOR = "(?<![A-Za-z0-9_:.])\\b(Some(?=\\s*\\()|None\\b)";
+const FALLBACK_RESULT_CONSTRUCTOR = "\\b(Result)(\\s*)(::)(\\s*)(Ok|Err)\\b";
 const IDENT = "[A-Za-z_][A-Za-z0-9_]*";
 const GENERIC_BLOCK = "<[^<>\\n]*(?:<[^<>\\n]*>[^<>\\n]*)*>";
 const PATH_IDENT = `(?:self|super|crate|${IDENT})`;
@@ -203,9 +203,7 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
     [new RegExp(`\\b(let)(\\s+)(mut)(\\s+)(${IDENT})\\b`), ["keyword", "", "keyword", "", "identifier"]],
     [new RegExp(`\\b(let)(\\s+)(${IDENT})\\b`), ["keyword", "", "identifier"]],
     [
-      // The constructor swallows its own empty argument list (`Option::Some()`), so the `()` is a
-      // signature delimiter like any other call instead of falling through to the Unit literal.
-      new RegExp(`${sectionPatterns("option-result-constructor")[0]?.match ?? FALLBACK_CONSTRUCTOR}${emptyCallTail}`),
+      new RegExp(`${sectionPatterns("option-result-constructor")[1]?.match ?? FALLBACK_RESULT_CONSTRUCTOR}${emptyCallTail}`),
       ["support.type", "", "punctuation.accessor", "", "support.constant.constructor", "delimiter"]
     ],
     [
@@ -219,6 +217,16 @@ export function createRustScriptMonarchLanguage(): Monaco.languages.IMonarchLang
     [
       new RegExp(`\\b(${IDENT})(\\s*)(::)(\\s*)(${PATH_CALL})(?=\\s*\\()${emptyCallTail}`),
       ["type.identifier", "", "delimiter", "", "function", "delimiter"]
+    ],
+    [
+      // Claim non-call namespace members together: Monarch cannot look behind tokens already read.
+      new RegExp(`\\b(${IDENT})(\\s*)(::)(\\s*)(${IDENT})\\b(?!\\s*\\()`),
+      ["type.identifier", "", "delimiter", "", "identifier"]
+    ],
+    [
+      // The constructor owns an empty argument list, so `Some()` is never scoped as Unit.
+      new RegExp(`${sectionPatterns("option-result-constructor")[0]?.match ?? FALLBACK_OPTION_CONSTRUCTOR}${emptyCallTail}`),
+      ["support.constant.constructor", "delimiter"]
     ],
     [new RegExp(`\\b(println)(\\s*)(!)(?=\\s*\\()`), ["function", "", "operator"]],
     // `?.<name>` is claimed here as one optional-access token, so this rule has to come before the
